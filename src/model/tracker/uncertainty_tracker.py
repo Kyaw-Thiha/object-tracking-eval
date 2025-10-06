@@ -249,15 +249,19 @@ class UncertaintyTracker(OCSORTTracker, ProbabilisticTracker):
             # threshold = self.secondary_threshold
             # cascade = False
         else:
-            if self.compute_entropy:
+            det_entropy = None                          ### NEW (initialize default)
+            if self.compute_entropy and det_bbox_covs is not None:   ### NEW (extra guard)
                 det_entropy = self.get_covariance_entropy(det_bbox_covs)
+            # if self.compute_entropy:
+            #     det_entropy = self.get_covariance_entropy(det_bbox_covs)
             
             #? Compute distance
             ious = bbox_overlaps(track_bboxes[:, :4], det_bboxes[:, :4], mode=mode)
             
             #? Scale IOU with detection scores
             if weight_iou_with_det_scores and det_bboxes.numel() > 0:
-                if self.det_score_mode == 'entropy':
+                # if self.det_score_mode == 'entropy':
+                if self.det_score_mode == 'entropy' and det_entropy is not None:   ### NEW (extra guard)
                     det_scores = det_entropy / det_entropy.min()
                     ious /= det_scores[None]
                     ious = torch.clamp(ious, max=1)
@@ -281,7 +285,11 @@ class UncertaintyTracker(OCSORTTracker, ProbabilisticTracker):
         #? Solve the linear assignment problem
         if dists.size > 0:
             if cascade:
-                row, col = self.matching_by_bin(dists, det_entropy.cpu().numpy(), threshold, num_bins)
+                row, col = self.matching_by_bin(dists, 
+                                                # det_entropy.cpu().numpy(), 
+                                                det_entropy.cpu().numpy() if det_entropy is not None else None,   ### NEW (handle None)
+                                                threshold, 
+                                                num_bins)
             else:
                 row, col = lap.lapjv(
                     dists, extend_cost=True, cost_limit=threshold, return_cost=False)
@@ -372,7 +380,7 @@ class UncertaintyTracker(OCSORTTracker, ProbabilisticTracker):
             first_match_det_labels = det_labels[matched]
             first_match_det_ids = det_ids[matched]
             assert (first_match_det_ids > -1).all()
-
+            
             first_unmatch_det_bboxes = det_bboxes[~matched]
             first_unmatch_det_bbox_covs = det_bbox_covs[~matched]
             first_unmatch_det_labels = det_labels[~matched]
@@ -510,6 +518,7 @@ class UncertaintyTracker(OCSORTTracker, ProbabilisticTracker):
             if self.expand_boxes and unmatch_det_bboxes.numel() > 0:
                 unmatch_det_bboxes, unmatch_det_bbox_covs = self.get_outer_bboxes(unmatch_det_bboxes,
                                                                                     unmatch_det_bbox_covs)
+                
                 #? 4. fourth: match tracks with expanded det boxes using outer bounds of ellipses
                 if len(unmatched_track_ids) > 0:
                     unmatched_track_bboxes, _ = self.get_outer_bboxes(unmatched_track_bboxes,
@@ -518,7 +527,7 @@ class UncertaintyTracker(OCSORTTracker, ProbabilisticTracker):
                                             -1,
                                             dtype=labels.dtype,
                                             device=labels.device)
-                
+                    
                     _, fourth_match_det_inds, _ = self.detection_matching(
                         unmatched_track_ids.tolist(), unmatched_track_bboxes, None,
                         unmatch_det_bboxes, None, unmatch_det_labels, 
@@ -534,7 +543,7 @@ class UncertaintyTracker(OCSORTTracker, ProbabilisticTracker):
                     fourth_match_det_labels = unmatch_det_labels[matched]
                     fourth_match_det_ids = remain_det_ids[matched]
                     assert (fourth_match_det_ids > -1).all()
-
+                    
                     fourth_unmatch_det_bboxes = unmatch_det_bboxes[~matched]
                     fourth_unmatch_det_bbox_covs = unmatch_det_bbox_covs[~matched]
                     fourth_unmatch_det_labels = unmatch_det_labels[~matched]
@@ -554,6 +563,7 @@ class UncertaintyTracker(OCSORTTracker, ProbabilisticTracker):
                         (match_det_labels, fourth_match_det_labels), dim=0)
                     match_det_ids = torch.cat(
                         (match_det_ids, fourth_match_det_ids), dim=0)
+            
             #* ----------------------------------------------
             #? 4. maintain tracks for online smoothing
             for i in range(len(match_det_ids)):
