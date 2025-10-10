@@ -1,9 +1,12 @@
+"""
+This is a test script in the development of a simplified inference pipeline
+"""
+
+import os
 import torch
 import numpy as np
 from PIL import Image
-import cv2
-
-from model.model_loader import ModelLoader
+import cv2 as cv
 
 from model.tracker.uncertainty_tracker import UncertaintyTracker
 from model.kalman_filter_uncertainty import KalmanFilterWithUncertainty
@@ -11,41 +14,61 @@ from model.kalman_filter_uncertainty import KalmanFilterWithUncertainty
 from datasets.mot17_dataset import MOT17CocoDataset
 from torch.utils.data import DataLoader
 
+import sys
+sys.path.append("/home/allynbao/project/object_detection_yolox")
+from yolox import YoloX
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 print("Using device:", device)
 
+# Check OpenCV version
+opencv_python_version = lambda str_version: tuple(map(int, (str_version.split("."))))
+assert opencv_python_version(cv.__version__) >= opencv_python_version("4.10.0"), \
+       "Please install latest opencv-python for benchmark: python3 -m pip install --upgrade opencv-python"
 
-def build_model(model_checkpoint_path, type="yolox", class_names=('perdestrian',)):
+# Valid combinations of backends and targets
+backend_target_pairs = [
+    [cv.dnn.DNN_BACKEND_OPENCV, cv.dnn.DNN_TARGET_CPU],
+    [cv.dnn.DNN_BACKEND_CUDA,   cv.dnn.DNN_TARGET_CUDA],
+    [cv.dnn.DNN_BACKEND_CUDA,   cv.dnn.DNN_TARGET_CUDA_FP16],
+    [cv.dnn.DNN_BACKEND_TIMVX,  cv.dnn.DNN_TARGET_NPU],
+    [cv.dnn.DNN_BACKEND_CANN,   cv.dnn.DNN_TARGET_NPU]
+]
+
+def letterbox(srcimg, target_size=(640, 640)):
+    padded_img = np.ones((target_size[0], target_size[1], 3)).astype(np.float32) * 114.0
+    ratio = min(target_size[0] / srcimg.shape[0], target_size[1] / srcimg.shape[1])
+    resized_img = cv.resize(
+        srcimg, (int(srcimg.shape[1] * ratio), int(srcimg.shape[0] * ratio)), interpolation=cv.INTER_LINEAR
+    ).astype(np.float32)
+    padded_img[: int(srcimg.shape[0] * ratio), : int(srcimg.shape[1] * ratio)] = resized_img
+
+    return padded_img, ratio
+
+def unletterbox(bbox, letterbox_scale):
+    return bbox / letterbox_scale
+
+backend_target = 0
+
+backend_id = backend_target_pairs[backend_target][0]
+target_id = backend_target_pairs[backend_target][1]
+
+
+class MOTDetector(torch.nn.Module):
     """
-    Build MOT model from model type and checkpoint path.
-    Args:
-        model_checkpoint_path (str): Path to model checkpoint.
-        type (str): Model type, e.g., 'yolox'.
-        class_names (tuple): Class names for the model.
-    Returns:
-        model (torch.nn.Module): Loaded model.
+    A Wrapper class for the bare detection model to include motion model, this is the expected structure by the tracker.
     """
-    if type == "yolox":
-        from cjm_yolox_pytorch.model import build_model
-        model_checkpoint = torch.load(model_checkpoint_path, map_location='cpu')
-        model_type = "yolox_x"
-        model = build_model(model_type, len(class_names), pretrained=True)
+    def __init__(self, detector, motion):
+        super().__init__()
+        self.detector = detector
+        self.motion = motion
+        self.with_motion = True
 
-        # --- fix for Missing key(s) in state_dict error ---
-        # Extract state_dict
-        state_dict = model_checkpoint["state_dict"] if "state_dict" in model_checkpoint else model_checkpoint
-
-        # Remove "module." prefixes if they exist
-        from collections import OrderedDict
-        new_state_dict = OrderedDict()
-        for k, v in state_dict.items():
-            new_state_dict[k.replace("module.", "")] = v
-
-        model.load_state_dict(new_state_dict, strict=False)
-        # --- end fix ---
-
-        return model
+    def forward(self, x):
+        # inference
+        preds = self.detector.infer(x)
+        return preds
     
 
 def build_mot17_dataloader(ann_file, img_prefix, batch_size=4, num_workers=4, input_size=(640, 640)):
@@ -58,62 +81,37 @@ def build_mot17_dataloader(ann_file, img_prefix, batch_size=4, num_workers=4, in
     return dataset, dataloader
 
 
-def preprocess_single_image(raw_image, input_size=(640, 640)):
-    """
-    Preprocess a single RGB numpy image for YOLOX inference.
-    
-    Steps:
-    1. Resize while keeping aspect ratio
-    2. Pad to (input_size, input_size) with 114 (YOLOX default gray)
-    3. Convert to CHW torch tensor and normalize to [0, 1]
-
-    Args:
-        raw_image (np.ndarray): Input RGB image (H, W, 3).
-        input_size (tuple): Desired size (h, w), must be multiple of 32.
-
-    Returns:
-        torch.Tensor: (1, 3, H, W) normalized image tensor.
-    """
-    h, w = raw_image.shape[:2]
-    scale = min(input_size[0] / h, input_size[1] / w)
-    nh, nw = int(h * scale), int(w * scale)
-
-    # Resize while keeping aspect ratio
-    resized = cv2.resize(raw_image, (nw, nh))
-
-    # Pad with 114 (standard YOLOX padding value)
-    padded = np.full((input_size[0], input_size[1], 3), 114, dtype=np.uint8)
-    padded[:nh, :nw, :] = resized
-
-    # Convert to torch tensor (1, 3, H, W), normalize
-    tensor = torch.from_numpy(padded).permute(2, 0, 1).unsqueeze(0).float()
-    tensor = tensor / 255.0
-
-    return tensor
-
-def single_image_inference(model, image):
-    with torch.no_grad():
-        img = preprocess_single_image(image)
-        outputs = model(img)
-        print("Outputs:", outputs)
-
-
-def multi_image_inference(model, images):
-    with torch.no_grad():
-        pass
-
-
-def main():
+def main(debug=False):
     test_image = np.array(Image.open("/home/allynbao/project/UncertaintyTrack/src/data/MOT17/test/MOT17-03-FRCNN/img1/000001.jpg").convert("RGB"))
-    model_checkpoint_path = "/home/allynbao/project/UncertaintyTrack/src/work_dirs/test_run/yolox_latest.pth"
+    model_checkpoint_path = "/home/allynbao/project/object_detection_yolox/object_detection_yolox_2022nov.onnx"
 
     # --- Build MOT17 dataset + dataloader ---
     ann_file_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/annotations/half-train_cocoformat.json'
     image_prefix_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train'
 
     # --- Initialize modle for inference ---
-    model = ModelLoader.build_model(model_checkpoint_path, type="yolox", class_names=('pedestrian',))
-    model = model.to(device).eval()
+    class_names = ('person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
+           'train', 'truck', 'boat', 'traffic light', 'fire hydrant',
+           'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog',
+           'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe',
+           'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
+           'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat',
+           'baseball glove', 'skateboard', 'surfboard', 'tennis racket',
+           'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl',
+           'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot',
+           'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch',
+           'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop',
+           'mouse', 'remote', 'keyboard', 'cell phone', 'microwave',
+           'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock',
+           'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush')
+
+    number_classes = len(class_names)
+    model = YoloX(modelPath=model_checkpoint_path,
+                      confThreshold=0.5,
+                      nmsThreshold=0.5,
+                      objThreshold=0.5,
+                      backendId=backend_id,
+                      targetId=target_id)
 
     # --- Initialize Tracker
     tracker = UncertaintyTracker(
@@ -132,25 +130,146 @@ def main():
         percent=0.3,
         ellipse_filter=True,
         filter_output=True,
-        combine_mahalanobis=False
+        combine_mahalanobis=False,
+
+        primary_cascade={'num_bins': None},   # dict, not False
+        secondary_fn=None,
+        secondary_cascade={'num_bins': None}, # dict, not False
     )
     motion_model = KalmanFilterWithUncertainty(fps=30)
     tracker.motion = motion_model
 
-    dataset, dataloader = build_mot17_dataloader(ann_file_path, image_prefix_path)
+    # Wrapper on detector to include motion model, expected by the tracker
+    mot_model = MOTDetector(detector=model, motion=KalmanFilterWithUncertainty())
 
-    all_results = []
+    fixed_cov_coeff = 1.0
+    batch_size = 4
+    tracker.reset()
+
+    dataset, dataloader = build_mot17_dataloader(ann_file_path, image_prefix_path, batch_size=batch_size)
+   
+    current_video = None    # flag to indicate when a new video sequence starts
+
+    results_per_video = []  # saves tracking results for the current video
+    output_dir = "./outputs/simplyfied_pipeline_results"
+    os.makedirs(output_dir, exist_ok=True)
+
     # --- Inference ---
     with torch.no_grad():
         for i, (imgs, targets) in enumerate(dataloader):
             imgs = imgs.to(device)     # (B=1, 3, H, W)
-            raw_preds = model(imgs) 
 
+            # --- iterate over frames within the batch ---
+            for j in range(batch_size):
+                img = imgs[j]
+                img_meta = targets[j]['img_metas']
+                frame_id = targets[j]['frame_id']
+                video_id = targets[j]["video_id"]
+                scale_factor = img_meta['scale_factor']
 
+                # --- Inference ---
+                img_np = img.detach().cpu().numpy().transpose(1, 2, 0)  # from torch (B, 3, H, W)[i] -> numpy (H, W, 3)
+                dets = mot_model(img_np)
+
+                det_bboxes = []
+                det_labels = []
+
+                for det in dets:
+                    box = unletterbox(det[:4], scale_factor).astype(np.int32)
+                    score = det[-2]
+                    cls_id = int(det[-1])
+                    x0, y0, x1, y1 = box
+                    if cls_id == 0:
+                        det_bboxes.append([x0, y0, x1, y1, score])
+                        det_labels.append(cls_id)
+
+                # skip empty detections
+                if dets is None or dets.shape[0] == 0:
+                    continue
+
+                # prepare tensors for tracker
+                det_bboxes = torch.tensor(det_bboxes, dtype=torch.float32, device=img.device)
+                det_labels = torch.tensor(det_labels, dtype=torch.long, device=img.device)
+                bbox_covs = torch.eye(4, device=img.device).unsqueeze(0).repeat(det_bboxes.shape[0], 1, 1)
+    
+                if debug:
+                    print(f"Frame {frame_id} - Det bboxes shape: {det_bboxes.shape}, Labels shape: {det_labels.shape}")
+                    print(f"Det bboxes shape: {det_bboxes.shape}, Labels shape: {det_labels.shape}")
+                    print(f"bbox_covs shape: {bbox_covs.shape}")
+
+                    print(f"Det Bboxes top left: max=({min([bbox[0] for bbox in det_bboxes])}, {min([bbox[1] for bbox in det_bboxes])}")
+                    print(f"Det Bboxes bottom right: max=({max([bbox[2] for bbox in det_bboxes])}, {max([bbox[3] for bbox in det_bboxes])}")
+
+                    print(f"Calling tracker.track for frame {frame_id}")
+                    print(f"  det_bboxes shape: {det_bboxes.shape}")
+                    print(f"  bbox_covs type: {type(bbox_covs)}, shape: {getattr(bbox_covs, 'shape', None)}")
+
+                # --- tracking ---
+                track_bboxes, track_bbox_covs, track_labels, track_ids = tracker.track(
+                    img=img,
+                    img_metas=[img_meta],
+                    model=mot_model,
+                    bboxes=det_bboxes,
+                    bbox_covs=bbox_covs,
+                    labels=det_labels,
+                    frame_id=frame_id,
+                    rescale=False,
+                )
+
+                from core.utils import results2outs, outs2results
+                track_results = outs2results(
+                    bboxes=track_bboxes,
+                    bbox_covs=track_bbox_covs,
+                    labels=track_labels,
+                    ids=track_ids,
+                    num_classes=number_classes)
+                det_results = outs2results(
+                    bboxes=det_bboxes, labels=det_labels, num_classes=number_classes)
+                
+                # reset tracker when encoutering frames from a new video
+                if current_video != video_id:
+                    # write previous video results to file
+                    if current_video is not None:
+                        out_path = os.path.join(output_dir, f"{current_video}.txt")
+                        with open(out_path, "w") as f:
+                            for row in results_per_video:
+                                f.write(",".join(map(str, row)) + "\n")
+                        print(f"Saved results for video {current_video} to {out_path}")
+                        results_per_video = []
+                    
+                        # reset tracker for new video
+                        tracker.reset()
+                    current_video = video_id
+                    print(f"Starting new sequence {video_id}")
+
+                # append track_results for the current frame to all retults of the current video
+                for class_bboxes in track_results["bbox_results"]:
+                    for row in class_bboxes:
+                        tid = int(row[0])       # track ID
+                        x1, y1, x2, y2, score = row[1:]
+                        w, h = x2 - x1, y2 - y1
+
+                        mot_row = [
+                            int(frame_id), tid,
+                            float(x1), float(y1), float(w), float(h),
+                            float(score),
+                            1,   # class id (pedestrian for MOT17)
+                            -1   # visibility (not provided)
+                        ]
+                        results_per_video.append(mot_row)
+                
 
             if i % 10 == 0:
                 print(f"Processed {i} batches")
+            
+        # --- After the entire evaluation loop finishes ---
+        if current_video is not None and results_per_video:
+            out_path = os.path.join(output_dir, f"{current_video}.txt")
+            with open(out_path, "w") as f:
+                for row in results_per_video:
+                    f.write(",".join(map(str, row)) + "\n")
+            print(f"Saved results for video {current_video} to {out_path}")    
 
             
 if __name__ == "__main__":
-    main()
+    main(debug=False)
