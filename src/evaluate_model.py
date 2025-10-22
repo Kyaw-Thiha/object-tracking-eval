@@ -5,10 +5,13 @@ from PIL import Image
 import cv2 as cv
 
 from model.tracker.uncertainty_tracker import UncertaintyTracker
+from model.tracker.prob_byte_tracker import ProbabilisticByteTracker
 from model.kalman_filter_uncertainty import KalmanFilterWithUncertainty
 
 from datasets.mot17_dataset import MOT17CocoDataset
 from torch.utils.data import DataLoader
+
+import argparse
 
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -55,10 +58,23 @@ def unletterbox(bbox, letterbox_scale):
     return bbox / letterbox_scale
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='evaluation pipeline')
+    parser.add_argument('--tracker', required=True,
+                        help='specify a tracker type',
+                        choices=['uncertainty_tracker', 'probabilistic_byte_tracker'],
+                        type=str)
+    return parser.parse_args()
+
+
 def main(debug=False):
     # --- Build MOT17 dataset + dataloader ---
     ann_file_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/annotations/half-train_cocoformat.json'
+    # ann_file_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/annotations/half-val_cocoformat.json'
+    
+    # ann_file_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/annotations/test_cocoformat.json'
     image_prefix_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train'
+    # image_prefix_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/test'
 
     # --- Get model from factory ---
     from model_factory.opencv_yolox_factory import factory
@@ -70,31 +86,47 @@ def main(debug=False):
     class_names = model.get_classes()
     number_classes = len(class_names)
 
-    # --- Initialize Tracker
-    tracker = UncertaintyTracker(
-        obj_score_thr=0.3,
-        init_track_thr=0.7,
-        weight_iou_with_det_scores=True,
-        match_iou_thr=0.3,
-        num_tentatives=3,
-        vel_consist_weight=0.2,
-        vel_delta_t=3,
-        num_frames_retain=30,
-        with_covariance=True,
-        det_score_mode='confidence',
-        use_giou=False,
-        expand_boxes=True,
-        percent=0.3,
-        ellipse_filter=True,
-        filter_output=True,
-        combine_mahalanobis=False,
+    args = parse_args()
 
-        primary_cascade={'num_bins': None},   # dict, not False
-        secondary_fn=None,
-        secondary_cascade={'num_bins': None}, # dict, not False
-    )
-    motion_model = KalmanFilterWithUncertainty(fps=30)
-    tracker.motion = motion_model
+    output_dir = f"./outputs/testrun_mot17_half_train_{args.tracker}/"
+
+    # --- Initialize Tracker
+    if args.tracker == 'uncertainty_tracker':
+        print("Using Uncertainty Tracker")
+        tracker = UncertaintyTracker(
+            obj_score_thr=0.3,
+            init_track_thr=0.7,
+            weight_iou_with_det_scores=True,
+            match_iou_thr=0.3,
+            num_tentatives=3,
+            vel_consist_weight=0.2,
+            vel_delta_t=3,
+            num_frames_retain=30,
+            with_covariance=True,
+            det_score_mode='confidence',
+            use_giou=False,
+            expand_boxes=True,
+            percent=0.3,
+            ellipse_filter=True,
+            filter_output=True,
+            combine_mahalanobis=False,
+
+            primary_cascade={'num_bins': None},   # dict, not False
+            secondary_fn=None,
+            secondary_cascade={'num_bins': None}, # dict, not False
+        )
+        motion_model = KalmanFilterWithUncertainty(fps=30)
+        tracker.motion = motion_model
+    elif args.tracker == 'probabilistic_byte_tracker':
+        print("Using Probabilistic Byte Tracker")
+        tracker = ProbabilisticByteTracker(
+            obj_score_thrs=dict(high=0.6, low=0.1),
+            init_track_thr=0.7,
+            weight_iou_with_det_scores=True,
+            match_iou_thrs=dict(high=0.1, low=0.5, tentative=0.3),
+        )
+        motion_model = KalmanFilterWithUncertainty(fps=30)
+        tracker.motion = motion_model
 
     # Wrapper on detector to include motion model, expected by the tracker
     mot_model = MOTDetector(detector=model, motion=KalmanFilterWithUncertainty())
@@ -107,7 +139,7 @@ def main(debug=False):
     current_video = None    # flag to indicate when a new video sequence starts
 
     results_per_video = []  # saves tracking results for the current video
-    output_dir = "./outputs/simplyfied_pipeline_results"
+    
     os.makedirs(output_dir, exist_ok=True)
 
     # --- Inference ---
@@ -147,7 +179,10 @@ def main(debug=False):
                 scale_factor = img_meta['scale_factor']
 
                 # scale bboxes back
+                if len(det_bboxes) == 0:
+                    continue
                 scaled_bboxes = det_bboxes.clone()
+                # print("Before unletterbox:", scaled_bboxes.shape)
                 scaled_bboxes[:, :4] /= det_bboxes.new_tensor(scale_factor)
                 det_bboxes = scaled_bboxes
     
