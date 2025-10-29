@@ -34,8 +34,15 @@ class MOTDetector(torch.nn.Module):
         return preds
     
 
-def build_mot17_dataloader(ann_file, img_prefix, batch_size=4, num_workers=4, input_size=(640, 640)):
-    dataset = MOT17CocoDataset(ann_file, img_prefix, input_size=input_size)
+def build_mot17_dataloader(batch_size=4, num_workers=0, input_size=(640, 640)):
+    # --- Build MOT17 dataset + dataloader ---
+    ann_file_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/annotations/half-train_cocoformat.json'
+    # ann_file_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/annotations/half-val_cocoformat.json'
+    
+    # ann_file_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/annotations/test_cocoformat.json'
+    image_prefix_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train'
+    # image_prefix_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/test'
+    dataset = MOT17CocoDataset(ann_file_path, image_prefix_path, input_size=input_size)
     def detection_collate_fn(batch):
         images = torch.stack([b[0] for b in batch])      # stack image tensors
         targets = [b[1] for b in batch]                  # keep list of dicts/arrays
@@ -68,16 +75,10 @@ def parse_args():
 
 
 def main(debug=False):
-    # --- Build MOT17 dataset + dataloader ---
-    ann_file_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/annotations/half-train_cocoformat.json'
-    # ann_file_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/annotations/half-val_cocoformat.json'
-    
-    # ann_file_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/annotations/test_cocoformat.json'
-    image_prefix_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train'
-    # image_prefix_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/test'
 
     # --- Get model from factory ---
-    from model_factory.opencv_yolox_factory import factory
+    # from model_factory.opencv_yolox_factory import factory
+    from model_factory.opencv_yolox_factory_image_noise import factory
 
     model = factory(device=device)
     assert hasattr(model, "get_classes"), "ASSERT ERROR: The model class must have method: get_classes() -> list[str]"
@@ -88,7 +89,7 @@ def main(debug=False):
 
     args = parse_args()
 
-    output_dir = f"./outputs/testrun_mot17_half_train_{args.tracker}/"
+    output_dir = f"./outputs/testrun_image_noise_mot17_half_train_{args.tracker}/"
 
     # --- Initialize Tracker
     if args.tracker == 'uncertainty_tracker':
@@ -134,7 +135,7 @@ def main(debug=False):
     batch_size = 4
     tracker.reset()
 
-    dataset, dataloader = build_mot17_dataloader(ann_file_path, image_prefix_path, batch_size=batch_size)
+    dataset, dataloader = build_mot17_dataloader(batch_size=batch_size)
    
     current_video = None    # flag to indicate when a new video sequence starts
 
