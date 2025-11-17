@@ -1,7 +1,12 @@
 import os
 import sys
 import math
+import scipy.stats
+import numpy as np
 from PIL import Image
+
+
+LARGE_DIST = float("inf")
 
 def single_video_det_diff(output1_path, output2_path, example_image_path):
     # get image dimensions
@@ -37,7 +42,6 @@ def single_video_det_diff(output1_path, output2_path, example_image_path):
     frame_ids = []
     diff_per_timestamp = []
     cur_frame_id = min(outputs1.keys())
-    print("Starting frame id: ", cur_frame_id)
     while cur_frame_id in outputs1 and cur_frame_id in outputs2:
         output1_bboxes = outputs1[cur_frame_id]
         output2_bboxes = outputs2[cur_frame_id]
@@ -57,8 +61,10 @@ def read_detection_output(output_path):
             # print(line)
             if len(line.split(",")) == 10:
                 frame_id, track_id, x0, y0, x1, y1, score, _, _, _ = line.split(",")
-            else:
+            elif len(line.split(",")) == 9:
                 frame_id, track_id, x0, y0, x1, y1, score, _, _ = line.split(",")
+            elif len(line.split(",")) == 7:
+                frame_id, track_id, x0, y0, x1, y1, score = line.split(",")
             # print(frame_id, track_id, x0, y0, x1, y1, score)
             frame_id = int(float(frame_id))
             track_id = int(float(track_id))
@@ -92,7 +98,7 @@ def diff_detection_by_frame(outputs1, outputs2, image_width, image_height):
 
 def shortest_distance_bbox_comparison(bbox_list1, bbox_list2, image_width, image_height):
     # build a distance score matrix between two bbox lists
-    distance_score = [[float("inf") for _ in range(len(bbox_list2))] for _ in range(len(bbox_list1))]
+    distance_score = [[float(LARGE_DIST) for _ in range(len(bbox_list2))] for _ in range(len(bbox_list1))]
     for i in range(len(bbox_list1)):
         for j in range(len(bbox_list2)):
             _, x0_1, y0_1, x1_1, y1_1, score_1 = bbox_list1[i]
@@ -113,7 +119,7 @@ def shortest_distance_bbox_comparison(bbox_list1, bbox_list2, image_width, image
     used_i = set()
     used_j = set()
     while True:
-        min_distance = float("inf")
+        min_distance = float(LARGE_DIST)
         min_i, min_j = None, None
         for i in range(len(bbox_list1)):
             if i in used_i: continue
@@ -146,7 +152,7 @@ def plot_diff(frame_ids, diff_per_timestamp, save_path):
     plt.close()
 
 
-def single_video_track_diff(output_paths, gt_paths, example_image_path, match_threshold=0.001):
+def single_video_track_diff(output_paths, gt_paths, example_image_path, match_threshold=0.01):
     # get image dimensions
     img = Image.open(example_image_path)
     image_width, image_height = img.size
@@ -195,6 +201,8 @@ def single_video_track_diff(output_paths, gt_paths, example_image_path, match_th
     
     # match closest tracks between output and ground truth
     output_track_id_used = set()
+    # print("[DEBUG](diff_track)(begin) Track IDs in GT:", gt_tracks.keys())
+    # print("[DEBUG](diff_track)(begin) Track IDs in Output:", output_tracks.keys())
     for gt_track_id in gt_tracks.keys():
         gt_start_frame_id = min(gt_tracks[gt_track_id].keys())
         gt_end_frame_id = max(gt_tracks[gt_track_id].keys())
@@ -234,6 +242,7 @@ def single_video_track_diff(output_paths, gt_paths, example_image_path, match_th
                     avg_distance = total_distance / count
                     distance_to_each_output_track[output_track_id] = avg_distance
                     coverage_of_each_output_track[output_track_id] = (start_frame_id, end_frame_id)
+                    # print(f"[DEBUG](diff_track)(matching) GT track {gt_track_id} and Output track {output_track_id} have avg distance {avg_distance} over {count} common frames.")
         
         # select the closest sets of output tracks to cover the gt track
         # sort output track id by distance
@@ -242,7 +251,7 @@ def single_video_track_diff(output_paths, gt_paths, example_image_path, match_th
         # record which sections of the gt track have been covered
         gt_track_sections_not_covered = [(gt_start_frame_id, gt_end_frame_id)]
         coverage = 0
-        avg_distance = float("inf")
+        avg_distance = float(LARGE_DIST)
         for output_track_id in sorted_distance_to_each_output_track.keys():
             if not output_track_id in output_track_id_used:
                 if distance_to_each_output_track[output_track_id] <= match_threshold:
@@ -270,7 +279,7 @@ def single_video_track_diff(output_paths, gt_paths, example_image_path, match_th
                             output_track_id_used.add(output_track_id)
                             
                             # update average distance
-                            if avg_distance == float("inf"):
+                            if avg_distance == float(LARGE_DIST):
                                 avg_distance = distance_to_each_output_track[output_track_id]
                             else:
                                 # weighted average distance, update newly covered part + old average on already covered part
@@ -279,9 +288,9 @@ def single_video_track_diff(output_paths, gt_paths, example_image_path, match_th
                                     distance_to_each_output_track[output_track_id] * new_section_len
                                     + avg_distance * coverage
                                 ) / (coverage + new_section_len)
-
+                            # print(f"[DEBUG](diff_track)(assign track) GT track {gt_track_id} is newly covered by Output track {output_track_id} from frame {coverage_start} to {coverage_end}, updated avg distance: {avg_distance}.")
                             coverage += len(overlap_frames(gt_track_section, output_tracks[output_track_id])) 
-
+                            # print(f"[DEBUG](diff_track)(assign track) GT track {gt_track_id} is covered by Output track {output_track_id} from frame {coverage_start} to {coverage_end}.")
         normalized_coverage = coverage / len(gt_tracks[gt_track_id])
         gt_track_distance[gt_track_id] = avg_distance
         gt_track_coverage[gt_track_id] = normalized_coverage
@@ -335,6 +344,62 @@ def plot_track_diff(gt_track_distance, gt_track_coverage, gt_track_apparance_rat
     plt.savefig(save_path)
     plt.close()
 
+
+def multi_video_track_diff(dataset_dir, output_dir, example_image_path, plot_save_path):
+    # iterate through video gt files under dataset
+    all_track_distance = []
+    all_track_coverage = []
+    for root, video_dirs, files in os.walk(dataset_dir):
+        for video_name in video_dirs:
+            print(f"evaluating detection and tracking output for video_name:", video_name)
+            det_file = os.path.join(dataset_dir, video_name, "det", "det.txt")
+            gt_train_file = os.path.join(dataset_dir, video_name, "gt", "gt_half-train.txt")
+            gt_val_file = os.path.join(dataset_dir, video_name, "gt", "gt_half-val.txt")
+            gt_files = [gt_train_file] # the dataloader only loads half train for now
+            output_file = os.path.join(output_dir, video_name + ".txt")
+            if os.path.exists(output_file):
+                # print(f"[INFO] processing output file: {output_file}, gt files: {gt_files}, example image: {example_image_path}")
+                frame_ids, diff_per_timestamp = single_video_det_diff(output_file, det_file, example_image_path)
+                gt_track_distance, gt_track_coverage, gt_track_apparance_rate = single_video_track_diff([output_file], gt_files, example_image_path)
+                all_track_distance.append(gt_track_distance)
+                all_track_coverage.append(gt_track_coverage)
+
+                video_plot_save_path = os.path.join(plot_save_path, video_name)
+                os.makedirs(video_plot_save_path, exist_ok=True)
+                det_plot_save_path = os.path.join(video_plot_save_path, "det_diff.png")
+                track_plot_save_path = os.path.join(video_plot_save_path, "track_diff.png")
+                plot_diff(frame_ids, diff_per_timestamp, det_plot_save_path)
+                plot_track_diff(gt_track_distance, gt_track_coverage, gt_track_apparance_rate, track_plot_save_path)
+            else:
+                print(f"[INFO] output file does not exist: {output_file}")
+        break
+    ci_track_distance = get_conference_interval(all_track_distance)
+    ci_track_coverage = get_conference_interval(all_track_coverage)
+
+    result = {
+        "track distance": {
+            "conference interval": ci_track_distance
+        },
+        "track coverage": {
+            "conference interval": ci_track_coverage
+        }
+    }
+    return result
+
+
+def get_conference_interval(data):
+    flat_vals = []
+    for d in data:
+        for v in d.values():
+            flat_vals.append(v)
+
+    arr = np.array(flat_vals, dtype=float)
+
+    # Replace inf / NaN with maximum error 1.0
+    arr = np.nan_to_num(arr, nan=1.0, posinf=1.0, neginf=1.0)
+
+    res = scipy.stats.bootstrap((arr,), np.mean, confidence_level=0.95)
+    return res.confidence_interval.low, res.confidence_interval.high
             
 
 if __name__ == "__main__":
@@ -344,27 +409,33 @@ if __name__ == "__main__":
     
     output_2_paths = ['/home/allynbao/project/UncertaintyTrack/src/outputs/testrun_mot17_half_train_probabilistic_byte_tracker/MOT17-02-DPM.txt',
                       '/home/allynbao/project/UncertaintyTrack/src/outputs/testrun_mot17_half_val_probabilistic_byte_tracker/MOT17-02-DPM.txt'
-
     ]
 
     output_3_paths = ['/home/allynbao/project/UncertaintyTrack/src/outputs/testrun_image_noise_mot17_half_train_probabilistic_byte_tracker/MOT17-02-DPM.txt',
                       '/home/allynbao/project/UncertaintyTrack/src/outputs/testrun_image_noise_mot17_half_val_probabilistic_byte_tracker/MOT17-02-DPM.txt']
     
+    # output_4_paths = ['/home/allynbao/project/UncertaintyTrack/src/outputs/test_pipeline_identity_uncertainty/MOT17-02-DPM.txt']
     det_path = "/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train/MOT17-02-DPM/det/det.txt"
 
     gt_paths = ["/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train/MOT17-02-DPM/gt/gt_half-train.txt",
-                "/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train/MOT17-02-DPM/gt/gt_half-val.txt"]
+                # "/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train/MOT17-02-DPM/gt/gt_half-val.txt"
+                ]
     
     example_image_path = "/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train/MOT17-02-DPM/img1/000001.jpg"
     # det_plot_save_path = "/home/allynbao/project/UncertaintyTrack/src/outputs/MOT17-02-DPM_uncertaintytracker_diff_det"
     det_plot_save_path = "/home/allynbao/project/UncertaintyTrack/src/outputs/MOT17-02-DPM_image_noise_prob_bytetracker_diff_det"
 
-    frame_ids, diff_per_timestamp = single_video_det_diff(output_1_paths, det_path, example_image_path)
-    gt_track_distance, gt_track_coverage, gt_track_apparance_rate = single_video_track_diff(output_1_paths, gt_paths, example_image_path, match_threshold=0.01)
+    # frame_ids, diff_per_timestamp = single_video_det_diff(output_1_paths, det_path, example_image_path)
+    # gt_track_distance, gt_track_coverage, gt_track_apparance_rate = single_video_track_diff(output_4_paths, gt_paths, example_image_path, match_threshold=0.01)
     
-    print("GT Track Distance: ", gt_track_distance)
-    print("GT Track Coverage: ", gt_track_coverage)
+    # print("GT Track Distance: ", gt_track_distance)
+    # print("GT Track Coverage: ", gt_track_coverage)
     
-    track_plot_save_path = "/home/allynbao/project/UncertaintyTrack/src/outputs/MOT17-02-DPM_image_noise_prob_bytetracker_diff_track"
-    plot_diff(frame_ids, diff_per_timestamp, det_plot_save_path)
-    plot_track_diff(gt_track_distance, gt_track_coverage, gt_track_apparance_rate, track_plot_save_path)
+    # track_plot_save_path = "/home/allynbao/project/UncertaintyTrack/src/plots/debug/MOT17-02-DPM.png"
+    # plot_diff(frame_ids, diff_per_timestamp, det_plot_save_path)
+    # plot_track_diff(gt_track_distance, gt_track_coverage, gt_track_apparance_rate, track_plot_save_path)
+
+    dataset_dir = "/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train"
+    output_dir = "/home/allynbao/project/UncertaintyTrack/src/outputs/test_pipeline_identity_uncertainty"
+    plot_save_path = "/home/allynbao/project/UncertaintyTrack/src/plots/debug/pipeline_test"
+    print(multi_video_track_diff(dataset_dir, output_dir, example_image_path, plot_save_path))

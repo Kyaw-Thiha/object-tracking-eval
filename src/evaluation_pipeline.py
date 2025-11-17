@@ -3,20 +3,26 @@ import torch
 import numpy as np
 from PIL import Image
 import cv2 as cv
+import time
+import json
+import scipy
 
 # tracker algorithms
 from model.tracker.uncertainty_tracker import UncertaintyTracker
 from model.tracker.prob_byte_tracker import ProbabilisticByteTracker
 from model.tracker.prob_sort_tracker import ProbabilisticSortTracker
 from model.tracker.prob_ocsort_tracker import ProbabilisticOCSORTTracker
-
 from model.kalman_filter_uncertainty import KalmanFilterWithUncertainty
+
+from core.utils import results2outs, outs2results
 
 from datasets.mot17_dataset import MOT17CocoDataset
 from torch.utils.data import DataLoader
 
 import argparse
 import importlib
+
+from diff_tracking_results import multi_video_track_diff
 
 allowed_trackers = ['uncertainty_tracker', 'probabilistic_byte_tracker', 'prob_sort_tracker', 'prob_ocsort_tracker']
 
@@ -25,7 +31,7 @@ def import_dataloader(factory_name: str):
     module_path = f"dataloader_factory.{factory_name}"
 
     try:
-        module = importlib.import_module(module_path)
+        module = importlib.import_module(module_path.replace('.py',''))
         dataloader = module.factory()
         # TODO: checks to varify dataloader is indeed a torch dataloader
         return dataloader
@@ -41,7 +47,7 @@ def import_model_factory(factory_name: str):
     
     Example: factory_name="opencv_yolox_factory_image_noise"
     """
-    module_path = f"model_factory.{factory_name}"
+    module_path = f"model_factory.{factory_name.replace('.py','')}"
 
     try:
         module = importlib.import_module(module_path)
@@ -90,7 +96,9 @@ def load_tracker(tracker_name: str):
         tracker.motion = motion_model
     elif tracker_name == 'prob_sort_tracker':
         print("Using Probabilistic Sort Tracker")
-        tracker = ProbabilisticSortTracker()
+        raise ValueError(
+            f"Probabilistic Sort Tracker is not yet implemented."
+        )
 
     elif tracker_name == 'prob_ocsort_tracker':
         print("Using Probabilistic OCSORT Tracker")
@@ -125,6 +133,12 @@ def parse_args():
     parser.add_argument('--dataloader_factory', required=True,
                         help='dataloader factory file name under dataloader_factory directory.',
                         type=str)
+    parser.add_argument("--dataset_dir", required=True,
+                        help="directory path where the dataset is stored.",
+                        type=str)
+    parser.add_argument("--example_image_path", required=True,
+                             help="path to an example image for frame dimensions.",
+                             type=str)
     parser.add_argument('--model_factory', required=True,
                         help="modle factory file name under model_factory directory.",
                         type=str)
@@ -142,7 +156,9 @@ def parse_args():
     parser.add_argument("--eval_result_dir", required=True,
                         help="directory path where to save the evaluation result to.",
                         type=str)
-    
+    parser.add_argument("--plot_save_path", required=True,
+                                help="path to save the evaluation plots.",
+                                type=str)
     return parser.parse_args()
 
 def main(debug=False):
@@ -173,6 +189,12 @@ def main(debug=False):
 
     tracker.reset()
 
+    # check dataset dir
+    if not os.path.exists(args.dataset_dir):
+        raise ValueError(f"Dataset directory {args.dataset_dir} does not exist.")
+    if not os.path.isfile(args.example_image_path):
+        raise ValueError(f"Example image path {args.example_image_path} is not a valid file.")
+
     dataloader = import_dataloader(args.dataloader_factory)
     batch_size = dataloader.batch_sampler.batch_size
    
@@ -182,10 +204,19 @@ def main(debug=False):
     
     os.makedirs(output_dir, exist_ok=True)
 
+    start_time = time.time()
+    total_frames_processed = 0
+    cur_video_frames = 0
+    cur_video_run_time = 0
+    throughputs = []
+    video_start = start_time
     # --- Inference ---
     with torch.no_grad():
         for i, (imgs, targets) in enumerate(dataloader):
             imgs = imgs.to(device)     # (B, 3, H, W)
+
+            total_frames_processed += imgs.shape[0]
+            cur_video_frames += imgs.shape[0]
 
             # --- Inference ---
             batch_dets = mot_model(imgs)
@@ -225,6 +256,8 @@ def main(debug=False):
                 # print("Before unletterbox:", scaled_bboxes.shape)
                 scaled_bboxes[:, :4] /= det_bboxes.new_tensor(scale_factor)
                 det_bboxes = scaled_bboxes
+
+                # print(f"Tracking starts, video_id: {video_id}, frame_id: {frame_id}, num_detections: {det_bboxes.shape[0]}")
     
                 # --- tracking ---
                 track_bboxes, track_bbox_covs, track_labels, track_ids = tracker.track(
@@ -238,7 +271,8 @@ def main(debug=False):
                     rescale=False,
                 )
 
-                from core.utils import results2outs, outs2results
+                # print(f"After tracking, num_tracks: {track_bboxes.shape[0]}")
+
                 track_results = outs2results(
                     bboxes=track_bboxes,
                     bbox_covs=track_bbox_covs,
@@ -259,6 +293,12 @@ def main(debug=False):
                     
                         # reset tracker for new video
                         tracker.reset()
+                        video_end = time.time()
+                        cur_video_run_time = video_end - video_start
+                        throughputs.append(cur_video_frames / cur_video_run_time)
+                        video_start = time.time()
+                        cur_video_frames = 0
+
                     current_video = video_id
                     print(f"Starting new sequence {video_id}")
 
@@ -280,14 +320,31 @@ def main(debug=False):
                 
             if i % 10 == 0:
                 print(f"Processed {i} batches")
-            
+
         # --- After the entire evaluation loop finishes ---
         if current_video is not None and results_per_video:
             out_path = os.path.join(output_dir, f"{current_video}.txt")
             with open(out_path, "w") as f:
                 for row in results_per_video:
                     f.write(",".join(map(str, row)) + "\n")
-            print(f"Saved results for video {current_video} to {out_path}")    
+            print(f"Saved results for video {current_video} to {out_path}")  
 
+        # end inference timing
+        end_time = time.time()
+        print(f"Inference and tracking completed in {end_time - start_time:.2f} seconds.")
+
+    throughput_ci = scipy.stats.bootstrap((throughputs,), np.mean, confidence_level=0.95)
+
+    # --- After all videos are processed, perform evaluation ---
+    result = multi_video_track_diff(args.dataset_dir, output_dir, args.example_image_path, args.plot_save_path)
+    result["inference time (seonds)"] = end_time - start_time
+    result["throughput (frame per second)"] = {"conference interval": [throughput_ci.confidence_interval.low, throughput_ci.confidence_interval.high]}
+
+    result_path = os.path.join(args.eval_result_dir, "evaluation_result.json")
+    os.makedirs(args.eval_result_dir, exist_ok=True)
+    with open(result_path, "w") as f:
+        json.dump(result, f)
+
+    
 if __name__ == "__main__":
     main(debug=False)
