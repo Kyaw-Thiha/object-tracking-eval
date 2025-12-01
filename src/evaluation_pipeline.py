@@ -24,7 +24,7 @@ import importlib
 
 from diff_tracking_results import multi_video_track_diff
 
-allowed_trackers = ['uncertainty_tracker', 'probabilistic_byte_tracker', 'prob_sort_tracker', 'prob_ocsort_tracker']
+allowed_trackers = ['uncertainty_tracker', 'probabilistic_byte_tracker', 'prob_ocsort_tracker']
 
 
 def import_dataloader(factory_name: str):
