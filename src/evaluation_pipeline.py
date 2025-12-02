@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader
 import argparse
 import importlib
 
-from diff_tracking_results import multi_video_track_diff
+from evaluation_metrics.evaluate import evaluate
 
 allowed_trackers = ['uncertainty_tracker', 'probabilistic_byte_tracker', 'prob_ocsort_tracker']
 
@@ -161,6 +161,13 @@ def parse_args():
                                 type=str)
     return parser.parse_args()
 
+def is_directory_empty(path):
+    """Checks if a given directory is empty."""
+    if not os.path.isdir(path):
+        return False
+    with os.scandir(path) as entries:
+        return not any(entries)
+
 def main(debug=False):
 
     args = parse_args()
@@ -168,182 +175,188 @@ def main(debug=False):
     device = args.device
     print("[INFO] Using device:", device)
 
-    # --- Get model from factory ---
-    # from model_factory.opencv_yolox_factory import factory
-    factory = import_model_factory(args.model_factory)
-
-    model = factory(device=device)
-    assert hasattr(model, "get_classes"), "ASSERT ERROR: The model class must have method: get_classes() -> list[str]"
-    assert hasattr(model, "infer"), "ASSERT ERROR: The model class must have method: infer() -> tuple[list]"
-
-    class_names = model.get_classes()
-    number_classes = len(class_names)
-
+    results = {}
     output_dir = args.output_dir
+    result_path = os.path.join(args.eval_result_dir, "evaluation_result.json")
 
-    # --- Initialize Tracker
-    tracker = load_tracker(args.tracker)
+    if not is_directory_empty(output_dir):
+        print(f"[INFO] Output directory {output_dir} is not empty. Skipping inference and tracking.")
+        with open(result_path, "r") as f:
+            results = json.load(f)
 
-    # Wrapper on detector to include motion model, expected by the tracker
-    mot_model = MOTDetector(detector=model, motion=KalmanFilterWithUncertainty())
+    else:
+        print(f"[INFO] Starting tracking evaluation pipeline...")
+        # --- Get model from factory ---
+        # from model_factory.opencv_yolox_factory import factory
+        factory = import_model_factory(args.model_factory)
 
-    tracker.reset()
+        model = factory(device=device)
+        assert hasattr(model, "get_classes"), "ASSERT ERROR: The model class must have method: get_classes() -> list[str]"
+        assert hasattr(model, "infer"), "ASSERT ERROR: The model class must have method: infer() -> tuple[list]"
 
-    # check dataset dir
-    if not os.path.exists(args.dataset_dir):
-        raise ValueError(f"Dataset directory {args.dataset_dir} does not exist.")
-    if not os.path.isfile(args.example_image_path):
-        raise ValueError(f"Example image path {args.example_image_path} is not a valid file.")
+        class_names = model.get_classes()
+        number_classes = len(class_names)
 
-    dataloader = import_dataloader(args.dataloader_factory)
-    batch_size = dataloader.batch_sampler.batch_size
-   
-    current_video = None    # flag to indicate when a new video sequence starts
+        # --- Initialize Tracker
+        tracker = load_tracker(args.tracker)
 
-    results_per_video = []  # saves tracking results for the current video
+        # Wrapper on detector to include motion model, expected by the tracker
+        mot_model = MOTDetector(detector=model, motion=KalmanFilterWithUncertainty())
+
+        tracker.reset()
+
+        # check dataset dir
+        if not os.path.exists(args.dataset_dir):
+            raise ValueError(f"Dataset directory {args.dataset_dir} does not exist.")
+        if not os.path.isfile(args.example_image_path):
+            raise ValueError(f"Example image path {args.example_image_path} is not a valid file.")
+
+        dataloader = import_dataloader(args.dataloader_factory)
+        batch_size = dataloader.batch_sampler.batch_size
     
-    os.makedirs(output_dir, exist_ok=True)
+        current_video = None    # flag to indicate when a new video sequence starts
 
-    start_time = time.time()
-    total_frames_processed = 0
-    cur_video_frames = 0
-    cur_video_run_time = 0
-    throughputs = []
-    video_start = start_time
-    # --- Inference ---
-    with torch.no_grad():
-        for i, (imgs, targets) in enumerate(dataloader):
-            imgs = imgs.to(device)     # (B, 3, H, W)
+        results_per_video = []  # saves tracking results for the current video
+        
+        os.makedirs(output_dir, exist_ok=True)
 
-            total_frames_processed += imgs.shape[0]
-            cur_video_frames += imgs.shape[0]
+        start_time = time.time()
+        total_frames_processed = 0
+        cur_video_frames = 0
+        cur_video_run_time = 0
+        throughputs = []
+        video_start = start_time
+        # --- Inference ---
+        with torch.no_grad():
+            for i, (imgs, targets) in enumerate(dataloader):
+                imgs = imgs.to(device)     # (B, 3, H, W)
 
-            # --- Inference ---
-            batch_dets = mot_model(imgs)
+                total_frames_processed += imgs.shape[0]
+                cur_video_frames += imgs.shape[0]
 
-            assert isinstance(batch_dets, tuple) and len(batch_dets) == 3, "Model Inference must return a tuple of (batch_detection_bboxes, batch_detection_labels, batch_detection_bbox_covariance_matrices)"
-            
-            batch_bboxes, batch_labels, batch_covs = batch_dets
-            
-            assert isinstance(batch_bboxes, list), "batch bboxes must be a python list"
-            assert all(isinstance(t, torch.Tensor) for t in batch_bboxes), \
-                "batch_bboxes must contain only torch.Tensor"
-            assert isinstance(batch_labels, list), "batch labels must be a python list"
-            assert all(isinstance(t, torch.Tensor) for t in batch_labels), \
-                "batch_labels must contain only torch.Tensor"
-            assert isinstance(batch_covs, list), "batch covs must be a python list"
-            assert all(isinstance(t, torch.Tensor) for t in batch_covs), \
-                "batch_covs must contain only torch.Tensor"
-            
-            assert len(batch_bboxes) == len(batch_labels) and len(batch_labels) == len(batch_covs) and len(batch_covs) == batch_size, "result lists lengths must be identical"
+                # --- Inference ---
+                batch_dets = mot_model(imgs)
 
-            # --- iterate over frames within the batch  ---
-            for j in range(batch_size):
-                img = imgs[j]
-                det_bboxes = batch_bboxes[j]
-                det_labels = batch_labels[j]
-                bbox_covs = batch_covs[j]
-
-                img_meta = targets[j]['img_metas']
-                frame_id = targets[j]['frame_id']
-                video_id = targets[j]["video_id"]
-                scale_factor = img_meta['scale_factor']
-
-                # scale bboxes back
-                if len(det_bboxes) == 0:
-                    continue
-                scaled_bboxes = det_bboxes.clone()
-                # print("Before unletterbox:", scaled_bboxes.shape)
-                scaled_bboxes[:, :4] /= det_bboxes.new_tensor(scale_factor)
-                det_bboxes = scaled_bboxes
-
-                # print(f"Tracking starts, video_id: {video_id}, frame_id: {frame_id}, num_detections: {det_bboxes.shape[0]}")
-    
-                # --- tracking ---
-                track_bboxes, track_bbox_covs, track_labels, track_ids = tracker.track(
-                    img=img,
-                    img_metas=[img_meta],
-                    model=mot_model,
-                    bboxes=det_bboxes,
-                    bbox_covs=bbox_covs,
-                    labels=det_labels,
-                    frame_id=frame_id,
-                    rescale=False,
-                )
-
-                # print(f"After tracking, num_tracks: {track_bboxes.shape[0]}")
-
-                track_results = outs2results(
-                    bboxes=track_bboxes,
-                    bbox_covs=track_bbox_covs,
-                    labels=track_labels,
-                    ids=track_ids,
-                    num_classes=number_classes)
-           
-                # reset tracker when encoutering frames from a new video
-                if current_video != video_id:
-                    # write previous video results to file
-                    if current_video is not None:
-                        out_path = os.path.join(output_dir, f"{current_video}.txt")
-                        with open(out_path, "w") as f:
-                            for row in results_per_video:
-                                f.write(",".join(map(str, row)) + "\n")
-                        print(f"Saved results for video {current_video} to {out_path}")
-                        results_per_video = []
-                    
-                        # reset tracker for new video
-                        tracker.reset()
-                        video_end = time.time()
-                        cur_video_run_time = video_end - video_start
-                        throughputs.append(cur_video_frames / cur_video_run_time)
-                        video_start = time.time()
-                        cur_video_frames = 0
-
-                    current_video = video_id
-                    print(f"Starting new sequence {video_id}")
-
-                # append track_results for the current frame to all retults of the current video
-                for class_bboxes in track_results["bbox_results"]:
-                    for row in class_bboxes:
-                        tid = int(row[0])       # track ID
-                        x1, y1, x2, y2, score = row[1:]
-                        w, h = x2 - x1, y2 - y1
-
-                        mot_row = [
-                            int(frame_id), tid,
-                            float(x1), float(y1), float(w), float(h),
-                            float(score),
-                            1,   # class id (pedestrian for MOT17)
-                            -1   # visibility (not provided)
-                        ]
-                        results_per_video.append(mot_row)
+                assert isinstance(batch_dets, tuple) and len(batch_dets) == 3, "Model Inference must return a tuple of (batch_detection_bboxes, batch_detection_labels, batch_detection_bbox_covariance_matrices)"
                 
-            if i % 10 == 0:
-                print(f"Processed {i} batches")
+                batch_bboxes, batch_labels, batch_covs = batch_dets
+                
+                assert isinstance(batch_bboxes, list), "batch bboxes must be a python list"
+                assert all(isinstance(t, torch.Tensor) for t in batch_bboxes), \
+                    "batch_bboxes must contain only torch.Tensor"
+                assert isinstance(batch_labels, list), "batch labels must be a python list"
+                assert all(isinstance(t, torch.Tensor) for t in batch_labels), \
+                    "batch_labels must contain only torch.Tensor"
+                assert isinstance(batch_covs, list), "batch covs must be a python list"
+                assert all(isinstance(t, torch.Tensor) for t in batch_covs), \
+                    "batch_covs must contain only torch.Tensor"
+                
+                assert len(batch_bboxes) == len(batch_labels) and len(batch_labels) == len(batch_covs) and len(batch_covs) == batch_size, "result lists lengths must be identical"
 
-        # --- After the entire evaluation loop finishes ---
-        if current_video is not None and results_per_video:
-            out_path = os.path.join(output_dir, f"{current_video}.txt")
-            with open(out_path, "w") as f:
-                for row in results_per_video:
-                    f.write(",".join(map(str, row)) + "\n")
-            print(f"Saved results for video {current_video} to {out_path}")  
+                # --- iterate over frames within the batch  ---
+                for j in range(batch_size):
+                    img = imgs[j]
+                    det_bboxes = batch_bboxes[j]
+                    det_labels = batch_labels[j]
+                    bbox_covs = batch_covs[j]
 
-        # end inference timing
-        end_time = time.time()
-        print(f"Inference and tracking completed in {end_time - start_time:.2f} seconds.")
+                    img_meta = targets[j]['img_metas']
+                    frame_id = targets[j]['frame_id']
+                    video_id = targets[j]["video_id"]
+                    scale_factor = img_meta['scale_factor']
 
-    throughput_ci = scipy.stats.bootstrap((throughputs,), np.mean, confidence_level=0.95)
+                    # scale bboxes back
+                    if len(det_bboxes) == 0:
+                        continue
+                    scaled_bboxes = det_bboxes.clone()
+                    # print("Before unletterbox:", scaled_bboxes.shape)
+                    scaled_bboxes[:, :4] /= det_bboxes.new_tensor(scale_factor)
+                    det_bboxes = scaled_bboxes
+
+                    # print(f"Tracking starts, video_id: {video_id}, frame_id: {frame_id}, num_detections: {det_bboxes.shape[0]}")
+        
+                    # --- tracking ---
+                    track_bboxes, track_bbox_covs, track_labels, track_ids = tracker.track(
+                        img=img,
+                        img_metas=[img_meta],
+                        model=mot_model,
+                        bboxes=det_bboxes,
+                        bbox_covs=bbox_covs,
+                        labels=det_labels,
+                        frame_id=frame_id,
+                        rescale=False,
+                    )
+                    # print(f"After tracking, num_tracks: {track_bboxes.shape[0]}")
+
+                    track_results = outs2results(
+                        bboxes=track_bboxes,
+                        bbox_covs=track_bbox_covs,
+                        labels=track_labels,
+                        ids=track_ids,
+                        num_classes=number_classes)
+            
+                    # reset tracker when encoutering frames from a new video
+                    if current_video != video_id:
+                        # write previous video results to file
+                        if current_video is not None:
+                            out_path = os.path.join(output_dir, f"{current_video}.txt")
+                            with open(out_path, "w") as f:
+                                for row in results_per_video:
+                                    f.write(",".join(map(str, row)) + "\n")
+                            print(f"[INFO] Saved results for video {current_video} to {out_path}")
+                            results_per_video = []
+                        
+                            # reset tracker for new video
+                            tracker.reset()
+                            video_end = time.time()
+                            cur_video_run_time = video_end - video_start
+                            throughputs.append(cur_video_frames / cur_video_run_time)
+                            video_start = time.time()
+                            cur_video_frames = 0
+
+                        current_video = video_id
+                        print(f"[INFO] Starting new sequence {video_id}")
+
+                    # append track_results for the current frame to all retults of the current video
+                    for class_bboxes in track_results["bbox_results"]:
+                        for row in class_bboxes:
+                            tid = int(row[0])       # track ID
+                            x1, y1, x2, y2, score = row[1:]
+                            w, h = x2 - x1, y2 - y1
+
+                            mot_row = [
+                                int(frame_id), tid,
+                                float(x1), float(y1), float(w), float(h),
+                                float(score),
+                                1,   # class id (pedestrian for MOT17)
+                                -1   # visibility (not provided)
+                            ]
+                            results_per_video.append(mot_row)
+                    
+                if i % 10 == 0:
+                    print(f"Processed {i} batches")
+
+            # --- After the entire evaluation loop finishes ---
+            if current_video is not None and results_per_video:
+                out_path = os.path.join(output_dir, f"{current_video}.txt")
+                with open(out_path, "w") as f:
+                    for row in results_per_video:
+                        f.write(",".join(map(str, row)) + "\n")
+                print(f"[INFO] Saved results for video {current_video} to {out_path}")  
+
+            # end inference timing
+            end_time = time.time()
+            print(f"[INFO] Inference and tracking completed in {end_time - start_time:.2f} seconds.")
+
+        throughput_ci = scipy.stats.bootstrap((throughputs,), np.mean, confidence_level=0.95)
+        results["inference time (seonds)"] = end_time - start_time
+        results["throughput (frame per second)"] = {"conference interval": [throughput_ci.confidence_interval.low, throughput_ci.confidence_interval.high]}
 
     # --- After all videos are processed, perform evaluation ---
-    result = multi_video_track_diff(args.dataset_dir, output_dir, args.example_image_path, args.plot_save_path)
-    result["inference time (seonds)"] = end_time - start_time
-    result["throughput (frame per second)"] = {"conference interval": [throughput_ci.confidence_interval.low, throughput_ci.confidence_interval.high]}
-
-    result_path = os.path.join(args.eval_result_dir, "evaluation_result.json")
+    results.update(evaluate(output_dir, args.dataset_dir))
     os.makedirs(args.eval_result_dir, exist_ok=True)
     with open(result_path, "w") as f:
-        json.dump(result, f)
+        json.dump(results, f)
 
     
 if __name__ == "__main__":
