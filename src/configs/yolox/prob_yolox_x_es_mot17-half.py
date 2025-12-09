@@ -4,9 +4,16 @@ _base_ = [
 ]
 USE_MMDET=True
 
+DATASET = "camel_dataset"
+
+CLASSES = (
+    'person', 'bicycle', 'car', 'horse'
+)
+
 #* some hyper parameters
-img_scale = (800, 1440)
-samples_per_gpu = 4
+# img_scale = (800, 1440)
+img_scale = (336, 256)   #* for camel dataset
+samples_per_gpu = 1
 total_epochs = 80
 num_last_epochs = 10    #TODO: configure this (original: 10)
 #* need num_last_epochs < total_epochs - 1
@@ -14,18 +21,22 @@ num_last_epochs = 10    #TODO: configure this (original: 10)
 mode_switch_epoch = 10
 start_eval_epoch = total_epochs - mode_switch_epoch - 1   #* start eval two epochs before switching mode
 interval = 5
-exp_name = "prob_yolox_x_es_mot17-half"
-out_dir = "/home/results/" + exp_name
-load_from = '/home/misc/yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth'  # noqa
+exp_name = f"prob_yolox_x_es_{DATASET}-half"
+# out_dir = "/home/results/" + exp_name
+out_dir = "/home/allynbao/project/UncertaintyTrack/src/checkpoints/" + exp_name
+# load_from = '/home/misc/yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth'  # noqa
+load_from = '/home/allynbao/project/UncertaintyTrack/src/checkpoints/yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth'  # noqa
 # resume_from = out_dir + "/latest.pth"
 resume_from = None
+work_dir = "/home/allynbao/project/UncertaintyTrack/src/checkpoints/prob_yolox_camel/"
 
 model = dict(
+    type='YOLOX',
     detector=dict(
         input_size=img_scale,
         random_size_range=(18, 32),
         bbox_head=dict(
-            num_classes=1,
+            num_classes=len(CLASSES),
             post_process="covariance_intersection",
             separate_levels=False,
             post_process_mlvl="bayesian",
@@ -120,15 +131,12 @@ data = dict(
         dataset=dict(
             type='ProbabilisticCocoDataset',
             ann_file=[
-                '/home/data/MOT17/annotations/half-train_cocoformat.json',
-                '/home/data/crowdhuman/annotations/crowdhuman_train.json',
-                '/home/data/crowdhuman/annotations/crowdhuman_val.json'
+                f'/home/allynbao/project/UncertaintyTrack/src/data/{DATASET}/annotations/half-train_cocoformat.json'
             ],
             img_prefix=[
-                '/home/data/MOT17/train', '/home/data/crowdhuman/train',
-                '/home/data/crowdhuman/val'
+                f'/home/allynbao/project/UncertaintyTrack/src/data/{DATASET}/train'
             ],
-            classes=('pedestrian', ),
+            classes=CLASSES,
             pipeline=[
                 dict(type='LoadImageFromFile'),
                 dict(type='LoadAnnotations', with_bbox=True)
@@ -137,9 +145,13 @@ data = dict(
         pipeline=train_pipeline),
     val=dict(
         type='ProbabilisticCocoDataset',
+        ann_file=f'/home/allynbao/project/UncertaintyTrack/src/data/{DATASET}/annotations/half-val_cocoformat.json',
+        img_prefix=f'/home/allynbao/project/UncertaintyTrack/src/data/{DATASET}/train',
         pipeline=test_pipeline),
     test=dict(
         type='ProbabilisticCocoDataset',
+        ann_file=f'/home/allynbao/project/UncertaintyTrack/src/data/{DATASET}/annotations/test_cocoformat.json',
+        img_prefix=f'/home/allynbao/project/UncertaintyTrack/src/data/{DATASET}/test',
         pipeline=test_pipeline))
 
 # you need to set mode='dynamic' if you are using pytorch<=1.5.0
