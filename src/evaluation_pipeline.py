@@ -24,6 +24,9 @@ import importlib
 
 from evaluation_metrics.evaluate import evaluate
 
+import faulthandler
+faulthandler.enable()
+
 allowed_trackers = ['uncertainty_tracker', 'probabilistic_byte_tracker', 'prob_ocsort_tracker']
 
 
@@ -136,9 +139,6 @@ def parse_args():
     parser.add_argument("--dataset_dir", required=True,
                         help="directory path where the dataset is stored.",
                         type=str)
-    parser.add_argument("--example_image_path", required=True,
-                             help="path to an example image for frame dimensions.",
-                             type=str)
     parser.add_argument('--model_factory', required=True,
                         help="modle factory file name under model_factory directory.",
                         type=str)
@@ -164,7 +164,7 @@ def parse_args():
 def is_directory_empty(path):
     """Checks if a given directory is empty."""
     if not os.path.isdir(path):
-        return False
+        return True
     with os.scandir(path) as entries:
         return not any(entries)
 
@@ -179,7 +179,7 @@ def main(debug=False):
     output_dir = args.output_dir
     result_path = os.path.join(args.eval_result_dir, "evaluation_result.json")
 
-    if not is_directory_empty(output_dir):
+    if not is_directory_empty(output_dir) and os.path.exists(result_path):
         print(f"[INFO] Output directory {output_dir} is not empty. Skipping inference and tracking.")
         with open(result_path, "r") as f:
             results = json.load(f)
@@ -208,11 +208,23 @@ def main(debug=False):
         # check dataset dir
         if not os.path.exists(args.dataset_dir):
             raise ValueError(f"Dataset directory {args.dataset_dir} does not exist.")
-        if not os.path.isfile(args.example_image_path):
-            raise ValueError(f"Example image path {args.example_image_path} is not a valid file.")
 
         dataloader = import_dataloader(args.dataloader_factory)
         batch_size = dataloader.batch_sampler.batch_size
+
+        print("[DEBUG] Checking dataloader...")
+        print("  Batch sampler batch_size:", dataloader.batch_sampler.batch_size)
+        print("  Dataset length:", len(dataloader.dataset))
+        # Try to fetch first batch
+        try:
+            first_batch = next(iter(dataloader))
+            print("[DEBUG] Successfully loaded first batch")
+            print("  imgs shape:", first_batch[0].shape)
+            print("  number of targets:", len(first_batch[1]))
+        except StopIteration:
+            print("[ERROR] Dataloader is EMPTY! No samples found.")
+        except Exception as e:
+            print("[ERROR] Exception while loading first batch:", e)
     
         current_video = None    # flag to indicate when a new video sequence starts
 
@@ -234,6 +246,8 @@ def main(debug=False):
                 total_frames_processed += imgs.shape[0]
                 cur_video_frames += imgs.shape[0]
 
+                actual_batch_size = imgs.shape[0]
+
                 # --- Inference ---
                 batch_dets = mot_model(imgs)
 
@@ -251,10 +265,17 @@ def main(debug=False):
                 assert all(isinstance(t, torch.Tensor) for t in batch_covs), \
                     "batch_covs must contain only torch.Tensor"
                 
-                assert len(batch_bboxes) == len(batch_labels) and len(batch_labels) == len(batch_covs) and len(batch_covs) == batch_size, "result lists lengths must be identical"
+                if not (len(batch_bboxes) == len(batch_labels) and len(batch_labels) == len(batch_covs) and len(batch_covs) == actual_batch_size):
+                    print(f"len(batch_bboxes): {len(batch_bboxes)}")
+                    print(f"len(batch_labels): {len(batch_labels)}")
+                    print(f"len(batch_covs): {len(batch_covs)}")
+                    print(f"batch_size: {batch_size}")
+                    print(f"actual_batch_size: {actual_batch_size}")
+
+                assert len(batch_bboxes) == len(batch_labels) and len(batch_labels) == len(batch_covs) and len(batch_covs) == actual_batch_size, "result lists lengths must be identical"
 
                 # --- iterate over frames within the batch  ---
-                for j in range(batch_size):
+                for j in range(actual_batch_size):
                     img = imgs[j]
                     det_bboxes = batch_bboxes[j]
                     det_labels = batch_labels[j]
