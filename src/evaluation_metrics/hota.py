@@ -3,6 +3,7 @@ This script uses HOTA from TrackEval to compute HOTA and AssA metrics for multi-
 """
 
 
+from pathlib import Path
 import numpy as np
 import scipy.stats
 
@@ -14,6 +15,8 @@ from evaluation_metrics.utils import (
 )
 
 from trackeval.metrics.hota import HOTA
+
+SRC_ROOT = Path(__file__).resolve().parents[1]
 
 
 def build_hota_data(gt_ann, pred_ann):
@@ -128,8 +131,8 @@ def multi_video_hota(result_dir, gt_dir):
 
 
 if __name__ == "__main__":
-    RESULT_DIR = "/home/allynbao/project/UncertaintyTrack/src/outputs/test_pipeline_prob_yolox_x_uncertainty"
-    GT_DIR = "/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train"
+    result_dir = SRC_ROOT / "outputs" / "test_pipeline_prob_yolox_x_uncertainty"
+    gt_dir = SRC_ROOT / "data" / "MOT17" / "train"
 
-    result = multi_video_hota(RESULT_DIR, GT_DIR)
+    result = multi_video_hota(str(result_dir), str(gt_dir))
     print("HOTA/AssA results:", result)
