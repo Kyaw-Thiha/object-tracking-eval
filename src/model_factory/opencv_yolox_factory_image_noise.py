@@ -79,7 +79,7 @@ class YOLOXNoiseModelWrapper(torch.nn.Module):
             print("correct cov matrices shape: ", torch.eye(4, device=self.device).unsqueeze(0).repeat(det_bboxes.shape[0], 1, 1).shape)
 
             # --- ChatGPT fix: numpy.linalg.LinAlgError: 1-th leading minor of the array is not positive definite "ensure covariance matrices are SPD before returning" ---
-            # error occurs in /home/allynbao/anaconda3/envs/mot_env/lib/python3.10/site-packages/scipy/linalg/decomp_cholesky.py
+            # error originates inside scipy.linalg.decomp_cholesky when covariances are not SPD
             sanitized_covs = []
             for cov in bbox_covs:
                 # symmetrize to avoid tiny asymmetries

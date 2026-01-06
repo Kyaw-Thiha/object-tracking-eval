@@ -1,3 +1,9 @@
+from .._base_.paths import (
+    CHECKPOINT_ROOT,
+    MOT17_ROOT,
+    CROWDHUMAN_ROOT,
+)
+
 _base_ = [
     '../_base_/models/yolox_x.py',
     '../_base_/datasets/mot_challenge.py', '../_base_/default_runtime.py'
@@ -7,7 +13,7 @@ MMDET = True
 
 img_scale = (800, 1440)
 samples_per_gpu = 4
-load_from = '/home/misc/bytetrack_yolox_x_crowdhuman_mot17-private-half_20211218_205500-1985c9f0.pth'
+load_from = str(CHECKPOINT_ROOT / 'bytetrack_yolox_x_crowdhuman_mot17-private-half_20211218_205500-1985c9f0.pth')
 
 model = dict(
     type='ByteTrack',
@@ -18,8 +24,7 @@ model = dict(
         test_cfg=dict(score_thr=0.01, nms=dict(type='nms', iou_threshold=0.7)),
         init_cfg=dict(
             type='Pretrained',
-            checkpoint=  # noqa: E251
-            '/home/misc/bytetrack_yolox_x_crowdhuman_mot17-private-half_20211218_205500-1985c9f0.pth'  # noqa: E501
+            checkpoint=str(CHECKPOINT_ROOT / 'bytetrack_yolox_x_crowdhuman_mot17-private-half_20211218_205500-1985c9f0.pth')
         )),
     motion=dict(type='KalmanFilter'),
     tracker=dict(
@@ -89,17 +94,18 @@ data = dict(
     train=dict(
         _delete_=True,
         type='MultiImageMixDataset',
-        dataset=dict(
-            type='CocoDataset',
-            ann_file=[
-                '/home/data/MOT17/annotations/half-train_cocoformat.json',
-                '/home/data/crowdhuman/annotations/crowdhuman_train.json',
-                '/home/data/crowdhuman/annotations/crowdhuman_val.json'
-            ],
-            img_prefix=[
-                '/home/data/MOT17/train', '/home/data/crowdhuman/train',
-                '/home/data/crowdhuman/val'
-            ],
+            dataset=dict(
+                type='CocoDataset',
+                ann_file=[
+                str(MOT17_ROOT / 'annotations' / 'half-train_cocoformat.json'),
+                str(CROWDHUMAN_ROOT / 'annotations' / 'crowdhuman_train.json'),
+                str(CROWDHUMAN_ROOT / 'annotations' / 'crowdhuman_val.json')
+                ],
+                img_prefix=[
+                str(MOT17_ROOT / 'train'),
+                str(CROWDHUMAN_ROOT / 'train'),
+                str(CROWDHUMAN_ROOT / 'val')
+                ],
             classes=('pedestrian', ),
             pipeline=[
                 dict(type='LoadImageFromFile'),

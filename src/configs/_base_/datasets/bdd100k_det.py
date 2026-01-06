@@ -1,8 +1,10 @@
 """Dataset settings.
 Credits to https://github.com/SysCV
 """
+from .paths import BDD_ROOT
+
 dataset_type = "BDD100KDetDataset"  # pylint: disable=invalid-name
-data_root = "/home/data/bdd100k/"  # pylint: disable=invalid-name
+data_root = str(BDD_ROOT)  # pylint: disable=invalid-name
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True
 )

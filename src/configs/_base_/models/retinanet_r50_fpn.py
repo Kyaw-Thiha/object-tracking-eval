@@ -1,4 +1,6 @@
 # model settings
+from .paths import CHECKPOINT_ROOT
+
 num_classes = 80
 
 model = dict(
@@ -65,5 +67,5 @@ model = dict(
             max_per_img=100),
         init_cfg=dict(
             type='Pretrained', 
-            checkpoint='/home/misc/retinanet_r50_fpn_2x_coco_20200131-fdb43119.pth'
+            checkpoint=str(CHECKPOINT_ROOT / 'retinanet_r50_fpn_2x_coco_20200131-fdb43119.pth')
         )))
