@@ -1,3 +1,5 @@
+# Codebase Navigation
+
 As the pipeline uses existing implementations for object tracking algorithms and the probabilistic detector from the UncertaintyTrack repository [Lee et al. 2024], this repository is a fork of UncertaintyTrack. 
 
 The codebase can be found on GitHub at: GitHub - 
