@@ -1,5 +1,6 @@
 import os
 import os.path as osp
+from pathlib import Path
 import torch
 import numpy as np
 import pandas as pd
@@ -11,6 +12,8 @@ from ..utils.analysis_utils import results2json, accumuluate_analysis
 from ..visualization import show_track_result
 
 import pprint
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 def mmdet_single_gpu_test(model,
                     data_loader,
@@ -107,9 +110,8 @@ def mmtrack_single_gpu_test(model,
     prog_bar = mmcv.ProgressBar(len(dataset))
     
     #? Show track results specified by txt file if it exists
-    # hard-coded path for now :(
-    filter_txt = '/home/misc/show_viz.txt'
-    if osp.exists(filter_txt):
+    filter_txt = PROJECT_ROOT / "show_viz.txt"
+    if filter_txt.exists():
         df = pd.read_csv(filter_txt,
                 sep=r'\s+|\t+|,',
                 skipinitialspace=True,

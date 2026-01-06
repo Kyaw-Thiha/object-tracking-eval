@@ -3,6 +3,9 @@ This is a test script in the development of a simplified inference pipeline
 """
 
 import os
+import sys
+from pathlib import Path
+
 import torch
 import numpy as np
 from PIL import Image
@@ -14,8 +17,10 @@ from model.kalman_filter_uncertainty import KalmanFilterWithUncertainty
 from datasets.mot17_dataset import MOT17CocoDataset
 from torch.utils.data import DataLoader
 
-import sys
-sys.path.append("/home/allynbao/project/object_detection_yolox")
+SRC_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = SRC_ROOT.parent
+YOLOX_ROOT = REPO_ROOT / "object_detection_yolox"
+sys.path.append(str(YOLOX_ROOT))
 from yolox import YoloX
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -82,12 +87,14 @@ def build_mot17_dataloader(ann_file, img_prefix, batch_size=4, num_workers=4, in
 
 
 def main(debug=False):
-    test_image = np.array(Image.open("/home/allynbao/project/UncertaintyTrack/src/data/MOT17/test/MOT17-03-FRCNN/img1/000001.jpg").convert("RGB"))
-    model_checkpoint_path = "/home/allynbao/project/object_detection_yolox/object_detection_yolox_2022nov.onnx"
+    mot17_root = SRC_ROOT / "data" / "MOT17"
+    test_image_path = mot17_root / "test" / "MOT17-03-FRCNN" / "img1" / "000001.jpg"
+    test_image = np.array(Image.open(test_image_path).convert("RGB"))
+    model_checkpoint_path = YOLOX_ROOT / "object_detection_yolox_2022nov.onnx"
 
     # --- Build MOT17 dataset + dataloader ---
-    ann_file_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/annotations/half-train_cocoformat.json'
-    image_prefix_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train'
+    ann_file_path = mot17_root / "annotations" / "half-train_cocoformat.json"
+    image_prefix_path = mot17_root / "train"
 
     # --- Initialize modle for inference ---
     class_names = ('person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
@@ -106,7 +113,7 @@ def main(debug=False):
            'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush')
 
     number_classes = len(class_names)
-    model = YoloX(modelPath=model_checkpoint_path,
+    model = YoloX(modelPath=str(model_checkpoint_path),
                       confThreshold=0.5,
                       nmsThreshold=0.5,
                       objThreshold=0.5,
@@ -146,7 +153,11 @@ def main(debug=False):
     batch_size = 4
     tracker.reset()
 
-    dataset, dataloader = build_mot17_dataloader(ann_file_path, image_prefix_path, batch_size=batch_size)
+    dataset, dataloader = build_mot17_dataloader(
+        str(ann_file_path),
+        str(image_prefix_path),
+        batch_size=batch_size,
+    )
    
     current_video = None    # flag to indicate when a new video sequence starts
 

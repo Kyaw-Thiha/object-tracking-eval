@@ -1,5 +1,10 @@
 import sys
-sys.path.append("/home/allynbao/project/object_detection_yolox")
+from pathlib import Path
+
+SRC_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = SRC_ROOT.parent
+YOLOX_ROOT = REPO_ROOT / "object_detection_yolox"
+sys.path.append(str(YOLOX_ROOT))
 from yolox import YoloX
 
 import cv2 as cv
@@ -208,8 +213,7 @@ class YOLOXNoiseModelWrapper(torch.nn.Module):
         
 
 def factory(device):
-
-    model_checkpoint_path = "/home/allynbao/project/object_detection_yolox/object_detection_yolox_2022nov.onnx"
+    model_checkpoint_path = YOLOX_ROOT / "object_detection_yolox_2022nov.onnx"
 
     # Check OpenCV version
     opencv_python_version = lambda str_version: tuple(map(int, (str_version.split("."))))
@@ -245,7 +249,7 @@ def factory(device):
            'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock',
            'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush')
 
-    model = YoloX(modelPath=model_checkpoint_path,
+    model = YoloX(modelPath=str(model_checkpoint_path),
                       confThreshold=0.5,
                       nmsThreshold=0.5,
                       objThreshold=0.5,
