@@ -17,19 +17,19 @@ Association Accuracy is one of the metrics proposed by “A Higher Order Metric 
 The True Positive Association set collects detection–ground truth pairs representing trajectories that are correctly labeled and whose ID assignments match between predictions and ground truth. Given ground-truth track IDs \(\text{gtID}\), predicted track IDs \(\text{prID}\), and true-positive detection–ground-truth pairs \(TP\), the TPA for a pair \(c \in TP\) is:
 
 $$
-TPA(c) = \left\{p \mid p \in TP,\ \text{gtID}(p) = \text{gtID}(c) \wedge \text{prID}(p) = \text{prID}(c)\right\}
+TPA(c) = \left\lbrace p \mid p \in TP,\ \text{gtID}(p) = \text{gtID}(c) \wedge \text{prID}(p) = \text{prID}(c) \right\rbrace
 $$
 
 The False Positive Association set captures detection–ground truth pairs where predictions describe a trajectory that does not exist in the ground truth. Given false-positive pairs \(FP\), the FPA for \(c\) is:
 
 $$
-FPA(c) = \left\{p \mid p \in FP,\ \text{gtID}(p) = \text{gtID}(c) \wedge \text{prID}(p) \neq \text{prID}(c)\right\} \cup \left\{p \mid p \in FP,\ \text{gtID}(p) = \text{gtID}(c)\right\}
+FPA(c) = \left\lbrace p \mid p \in FP,\ \text{gtID}(p) = \text{gtID}(c) \wedge \text{prID}(p) \neq \text{prID}(c) \right\rbrace \cup \left\lbrace p \mid p \in FP,\ \text{gtID}(p) = \text{gtID}(c) \right\rbrace
 $$
 
 The False Negative Association set captures hypothetical detection–ground truth pairs describing tracks missing from the prediction. Given false-negative pairs \(FN\), the FNA for predicted ID \(c\) is:
 
 $$
-FNA(c) = \left\{p \mid p \in FN,\ \text{gtID}(p) \neq \text{gtID}(c) \wedge \text{prID}(p) = \text{prID}(c)\right\} \cup \left\{p \mid p \in FN,\ \text{prID}(p) = \text{prID}(c)\right\}
+FNA(c) = \left\lbrace p \mid p \in FN,\ \text{gtID}(p) \neq \text{gtID}(c) \wedge \text{prID}(p) = \text{prID}(c) \right\rbrace \cup \left\lbrace p \mid p \in FN,\ \text{prID}(p) = \text{prID}(c) \right\rbrace
 $$
 
 Then the association accuracy is:
