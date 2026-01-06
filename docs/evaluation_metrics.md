@@ -7,7 +7,7 @@ Detection Accuracy measures the localization quality of correctly matched detect
 For each frame, given detections \(d\), ground truth boxes \(g\), and the set of matched detection–ground truth pairs \(M\), DetA is:
 
 $$
-\text{DetA} = \frac{1}{|M|} \sum_{(d,g) \in M} \operatorname{IoU}(B_d, B_g)
+\text{DetA} = \frac{1}{|M|} \sum_{(d,g) \in M} \text{IoU}(B_d, B_g)
 $$
 
 ## AssA (Association Accuracy)
@@ -45,4 +45,3 @@ HOTA combines the detection accuracy (DetA) and association accuracy (AssA) to p
 $$
 \text{HOTA} = \sqrt{\text{DetA} \cdot \text{AssA}}
 $$
-
