@@ -6,7 +6,7 @@ import os
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 RESULTS_ROOT = os.environ.get("RESULTS_ROOT", os.path.join(PROJECT_ROOT, "results"))
 CHECKPOINT_ROOT = os.environ.get(
-    "CHECKPOINT_ROOT", os.path.join(PROJECT_ROOT, "src", "checkpoints")
+    "CHECKPOINT_ROOT", os.path.join(PROJECT_ROOT, "checkpoints")
 )
 DATA_ROOT = os.environ.get("DATA_ROOT", os.path.join(PROJECT_ROOT, "data"))
 
