@@ -1,10 +1,34 @@
 # UncertaintyTrack
 Pipeline for MOT model evaluation built on UncertaintyTrack repository
 
-# Development Setup
-- Create and activate a Python 3.10 virtual environment.
-- Install dependencies with `pip install -r requirements.txt`.
-- Build the Docker image from the project root so the Dockerfile can access both the shared requirements file and `docker/apt_packages.txt`, e.g. `docker build -f docker/Dockerfile .`.
+## Getting Started
+Note that the python version needs to be 3.10 due to `mmcv-full` package version.
+
+1. Create the virtual environment.
+```bash
+conda create -n object-tracking-eval python=3.10 -y
+```
+
+2. Activate the virutal environment.
+```bash
+conda activate object-tracking-eval
+```
+
+3. Install the specific torch versions.
+```bash
+pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/
+    cu117
+```
+
+4. Install the `mmcv-full` package.
+```bash
+pip install mmcv-full==1.7.2 -f https://download.openmmlab.com/mmcv/dist/cu117/torch1.13/index.html
+```
+
+5. Install the rest of the packages
+```bash
+pip install -r requirements.txt
+```
 
 # Using Simplified Inference Pipeline for model evaluation
 the inference script is under src/evaluate_model.py
