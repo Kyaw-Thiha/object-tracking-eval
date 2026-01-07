@@ -2,6 +2,9 @@ import os
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 RESULTS_ROOT = os.environ.get("RESULTS_ROOT", os.path.join(PROJECT_ROOT, "results"))
+CHECKPOINT_ROOT = os.environ.get(
+    "CHECKPOINT_ROOT", os.path.join(PROJECT_ROOT, "src", "checkpoints")
+)
 DATA_ROOT = os.environ.get("DATA_ROOT", os.path.join(PROJECT_ROOT, "data"))
 
 _base_ = [
@@ -22,7 +25,10 @@ start_eval_epoch = total_epochs - mode_switch_epoch - 1   #* start eval one epoc
 interval = 5
 exp_name = "prob_yolox_x_nll_mot17-half"
 out_dir = os.path.join(RESULTS_ROOT, exp_name)
-load_from = '/home/misc/yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth'  # noqa
+load_from = os.path.join(
+    CHECKPOINT_ROOT,
+    "yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth",
+)  # noqa
 # resume_from = out_dir + "/latest.pth"
 resume_from = None
 

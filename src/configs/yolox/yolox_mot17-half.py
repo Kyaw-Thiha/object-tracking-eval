@@ -2,6 +2,9 @@ import os
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 RESULTS_ROOT = os.environ.get("RESULTS_ROOT", os.path.join(PROJECT_ROOT, "results"))
+CHECKPOINT_ROOT = os.environ.get(
+    "CHECKPOINT_ROOT", os.path.join(PROJECT_ROOT, "src", "checkpoints")
+)
 DATA_ROOT = os.environ.get("DATA_ROOT", os.path.join(PROJECT_ROOT, "data"))
 
 _base_ = [
@@ -15,7 +18,10 @@ img_scale = (800, 1440)
 samples_per_gpu = 4
 exp_name = "yolox_mot17-half"
 out_dir = os.path.join(RESULTS_ROOT, exp_name)
-load_from = '/home/misc/bytetrack_yolox_x_crowdhuman_mot17-private-half_20211218_205500-1985c9f0.pth'  # noqa
+load_from = os.path.join(
+    CHECKPOINT_ROOT,
+    "bytetrack_yolox_x_crowdhuman_mot17-private-half_20211218_205500-1985c9f0.pth",
+)  # noqa
 resume_from = None
 total_epochs = 100
 
