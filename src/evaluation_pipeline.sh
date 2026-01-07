@@ -12,12 +12,13 @@ MODEL_FACTORY="yolox_noise"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_ROOT="$SCRIPT_DIR"
+PROJECT_ROOT="$(cd "$SRC_ROOT/.." && pwd)"
 
 # Allow callers to override the default roots to avoid hard-coded absolute paths.
-DATA_ROOT="${DATA_ROOT:-$SRC_ROOT/data}"
-OUTPUT_ROOT="${OUTPUT_ROOT:-$SRC_ROOT/outputs}"
-EVAL_RESULT_ROOT="${EVAL_RESULT_ROOT:-$SRC_ROOT/evaluation_results}"
-PLOT_ROOT="${PLOT_ROOT:-$SRC_ROOT/plots}"
+DATA_ROOT="${DATA_ROOT:-$PROJECT_ROOT/data}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-$PROJECT_ROOT/outputs}"
+EVAL_RESULT_ROOT="${EVAL_RESULT_ROOT:-$PROJECT_ROOT/evaluation_results}"
+PLOT_ROOT="${PLOT_ROOT:-$PROJECT_ROOT/plots}"
 
 DATASET_DIR="${DATA_ROOT}/${DATASET}_dataset/test"
 OUTPUT_DIR="${OUTPUT_ROOT}/${DATASET}_${MODEL_FACTORY}_${TRACKER}"
