@@ -2,6 +2,7 @@ import os
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 RESULTS_ROOT = os.environ.get("RESULTS_ROOT", os.path.join(PROJECT_ROOT, "results"))
+DATA_ROOT = os.environ.get("DATA_ROOT", os.path.join(PROJECT_ROOT, "src", "data"))
 
 _base_ = [
     '../_base_/models/prob_yolox_x.py',
@@ -123,13 +124,14 @@ data = dict(
         dataset=dict(
             type='ProbabilisticCocoDataset',
             ann_file=[
-                '/home/data/MOT17/annotations/half-train_cocoformat.json',
-                '/home/data/crowdhuman/annotations/crowdhuman_train.json',
-                '/home/data/crowdhuman/annotations/crowdhuman_val.json'
+                os.path.join(DATA_ROOT, 'MOT17', 'annotations', 'half-train_cocoformat.json'),
+                os.path.join(DATA_ROOT, 'crowdhuman', 'annotations', 'crowdhuman_train.json'),
+                os.path.join(DATA_ROOT, 'crowdhuman', 'annotations', 'crowdhuman_val.json')
             ],
             img_prefix=[
-                '/home/data/MOT17/train', '/home/data/crowdhuman/train',
-                '/home/data/crowdhuman/val'
+                os.path.join(DATA_ROOT, 'MOT17', 'train'),
+                os.path.join(DATA_ROOT, 'crowdhuman', 'train'),
+                os.path.join(DATA_ROOT, 'crowdhuman', 'val'),
             ],
             classes=('pedestrian', ),
             pipeline=[

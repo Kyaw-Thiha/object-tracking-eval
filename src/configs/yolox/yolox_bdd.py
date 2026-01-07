@@ -2,6 +2,7 @@ import os
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 RESULTS_ROOT = os.environ.get("RESULTS_ROOT", os.path.join(PROJECT_ROOT, "results"))
+DATA_ROOT = os.environ.get("DATA_ROOT", os.path.join(PROJECT_ROOT, "src", "data"))
 
 _base_ = [
     '../_base_/models/yolox_x.py',
@@ -107,7 +108,7 @@ test_pipeline = [
         ])
 ]
 dataset_type = "BDD100KDetDataset"
-data_root = '/home/data/bdd100k/'
+data_root = os.path.join(DATA_ROOT, 'bdd100k')
 data = dict(
     samples_per_gpu=samples_per_gpu,
     workers_per_gpu=samples_per_gpu,
@@ -118,12 +119,12 @@ data = dict(
         dataset=dict(
             type=dataset_type,
             ann_file=[
-                data_root + 'jsons/box_track_train_cocofmt.json',
-                data_root + 'jsons/det_train_cocofmt.json'
+                os.path.join(data_root, 'jsons', 'box_track_train_cocofmt.json'),
+                os.path.join(data_root, 'jsons', 'det_train_cocofmt.json')
             ],
             img_prefix=[
-                data_root + 'images/track/train',
-                data_root + 'images/100k/train'
+                os.path.join(data_root, 'images', 'track', 'train'),
+                os.path.join(data_root, 'images', '100k', 'train')
             ],
             pipeline=[
                 dict(type='LoadImageFromFile'),
@@ -137,8 +138,8 @@ data = dict(
     test=dict(
         type=dataset_type,
         pipeline=test_pipeline,
-        ann_file=data_root + 'jsons/box_track_val_cocofmt.json',   #! evaluate detection on tracking set 
-        img_prefix=data_root + 'images/track/val/'  #! evaluate detection on tracking set 
+        ann_file=os.path.join(data_root, 'jsons', 'box_track_val_cocofmt.json'),   #! evaluate detection on tracking set 
+        img_prefix=os.path.join(data_root, 'images', 'track', 'val'))  #! evaluate detection on tracking set 
     ))
 
 # you need to set mode='dynamic' if you are using pytorch<=1.5.0
