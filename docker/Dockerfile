@@ -14,7 +14,7 @@ ENV CUDNN_VERSION=${CUDNN_VERSION}
 SHELL ["/bin/bash", "-c"]
 
 #? System Packages
-COPY apt_packages.txt apt_packages.txt
+COPY docker/apt_packages.txt apt_packages.txt
 RUN apt-get update && \
     xargs -a apt_packages.txt apt-get install -y --no-install-recommends && \
     rm apt_packages.txt && \

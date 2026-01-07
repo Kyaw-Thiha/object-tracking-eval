@@ -1,6 +1,11 @@
 # UncertaintyTrack
 Pipeline for MOT model evaluation built on UncertaintyTrack repository
 
+# Development Setup
+- Create and activate a Python 3.10 virtual environment.
+- Install dependencies with `pip install -r requirements.txt`.
+- Build the Docker image from the project root so the Dockerfile can access both the shared requirements file and `docker/apt_packages.txt`, e.g. `docker build -f docker/Dockerfile .`.
+
 # Using Simplified Inference Pipeline for model evaluation
 the inference script is under src/evaluate_model.py
 
