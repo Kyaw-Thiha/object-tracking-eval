@@ -191,14 +191,8 @@ def factory(device: str):
     """
     # Paths based on your training command:
     #   python train.py configs/yolox/prob_yolox_x_es_mot17-half.py
-    # config_path = os.path.join(
-    #     "/home/allynbao/project/UncertaintyTrack/src",
-    #     "configs/yolox/prob_yolox_x_es_mot17-half.py",
-    # )
-    # checkpoint_path = os.path.join(
-    #     "/home/allynbao/project/UncertaintyTrack/src",
-    #     "work_dirs/prob_yolox_x_es_mot17-half/epoch_69.pth",
-    # )
+    # config_path = os.path.join(PROJECT_ROOT, "src", "configs", "yolox", "prob_yolox_x_es_mot17-half.py")
+    # checkpoint_path = os.path.join(PROJECT_ROOT, "checkpoints", "prob_yolox_mot17", "epoch_69.pth")
 
     config_path = SRC_ROOT / "configs" / "yolox" / "prob_yolox_x_es_mot17-half.py"
     checkpoint_path = PROJECT_ROOT / "checkpoints" / "prob_yolox_mot17" / "epoch_69.pth"

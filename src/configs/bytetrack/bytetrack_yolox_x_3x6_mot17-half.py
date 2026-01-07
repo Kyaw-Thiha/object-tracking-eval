@@ -148,8 +148,8 @@ data = dict(
         ))
     # test=dict(
     #     type='MOTChallengeDataset',  # or 'CocoVideoDataset' if needed by your tracker
-    #     ann_file='/home/allynbao/project/UncertaintyTrack/data/MOT17/annotations/half-train_cocoformat.json',
-    #     img_prefix='/home/allynbao/project/UncertaintyTrack/data/MOT17/train',
+    #     ann_file='${DATA_ROOT}/MOT17/annotations/half-train_cocoformat.json',
+    #     img_prefix='${DATA_ROOT}/MOT17/train',
     #     classes=('pedestrian', ),
     #     pipeline=test_pipeline
     # ))

@@ -444,7 +444,7 @@ if __name__ == "__main__":
     # print("GT Track Distance: ", gt_track_distance)
     # print("GT Track Coverage: ", gt_track_coverage)
     
-    # track_plot_save_path = "/home/allynbao/project/UncertaintyTrack/src/plots/debug/MOT17-02-DPM.png"
+    # track_plot_save_path = str(SRC_ROOT / "plots" / "debug" / "MOT17-02-DPM.png")
     # plot_diff(frame_ids, diff_per_timestamp, det_plot_save_path)
     # plot_track_diff(gt_track_distance, gt_track_coverage, gt_track_apparance_rate, track_plot_save_path)
 
