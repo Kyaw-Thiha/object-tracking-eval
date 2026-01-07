@@ -14,17 +14,17 @@ conda create -n object-tracking-eval python=3.10 -y
 conda activate object-tracking-eval
 ```
 
-4. Install the specific torch versions.
+3. Install the specific torch versions.
 ```bash
 pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu117
 ```
 
-5. Install the `mmcv-full` package.
+4. Install the `mmcv-full` package.
 ```bash
 pip install mmcv-full==1.7.2 -f https://download.openmmlab.com/mmcv/dist/cu117/torch1.13/index.html
 ```
 
-6. Install the rest of the packages
+5. Install the rest of the packages
 ```bash
 pip install -r requirements.txt
 ```
