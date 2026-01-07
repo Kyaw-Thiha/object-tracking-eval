@@ -8,6 +8,7 @@ RESULTS_ROOT = os.environ.get("RESULTS_ROOT", os.path.join(PROJECT_ROOT, "result
 CHECKPOINT_ROOT = os.environ.get(
     "CHECKPOINT_ROOT", os.path.join(PROJECT_ROOT, "src", "checkpoints")
 )
+DATA_ROOT = os.environ.get("DATA_ROOT", os.path.join(PROJECT_ROOT, "data"))
 
 _base_ = [
     '../_base_/models/prob_yolox_x.py',
@@ -96,7 +97,6 @@ test_pipeline = [
             dict(type='VideoCollect', keys=['img'])
         ])
 ]
-data_root = '/home/allynbao/project/UncertaintyTrack/src/data/bdd100k/'
 data = dict(
     workers_per_gpu=8,
     persistent_workers=True,
@@ -105,9 +105,9 @@ data = dict(
         # interpolate_tracks_cfg=dict(min_num_frames=5, max_num_frames=20)),
     test=dict(
         pipeline=test_pipeline,
-        ann_file=data_root + 'jsons/box_track_test_cocofmt.json',
+        ann_file=os.path.join(DATA_ROOT, 'bdd100k', 'jsons', 'box_track_test_cocofmt.json'),
         test_load_ann=False,
-        img_prefix=data_root + 'images/track/test/'))
+        img_prefix=os.path.join(DATA_ROOT, 'bdd100k', 'images', 'track', 'test')))
         # interpolate_tracks_cfg=dict(min_num_frames=5, max_num_frames=20)))
 
 search_metrics = ['MOTA', 'IDF1', 'FP', 'FN', 'IDSw']

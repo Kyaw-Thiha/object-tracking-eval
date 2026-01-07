@@ -5,6 +5,7 @@ import os
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 RESULTS_ROOT = os.environ.get("RESULTS_ROOT", os.path.join(PROJECT_ROOT, "results"))
+DATA_ROOT = os.environ.get("DATA_ROOT", os.path.join(PROJECT_ROOT, "data"))
 
 _base_ = [
     '../_base_/models/prob_yolox_x.py',
@@ -101,8 +102,8 @@ data = dict(
         # interpolate_tracks_cfg=dict(min_num_frames=5, max_num_frames=20)),
     test=dict(
         pipeline=test_pipeline,
-        ann_file='/home/data/MOT17/annotations/test_cocoformat.json',
-        img_prefix='/home/data/MOT17/test'))
+        ann_file=os.path.join(DATA_ROOT, "MOT17", "annotations", "test_cocoformat.json"),
+        img_prefix=os.path.join(DATA_ROOT, "MOT17", "test")))
         # interpolate_tracks_cfg=dict(min_num_frames=5, max_num_frames=20)))
 
 search_metrics = ['MOTA', 'IDF1', 'FP', 'FN', 'IDs']
