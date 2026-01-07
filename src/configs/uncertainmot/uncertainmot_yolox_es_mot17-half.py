@@ -1,5 +1,11 @@
 """This config is only for tracking inference.
 For detector training, please use the appropriate config for the detector."""
+
+import os
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+RESULTS_ROOT = os.environ.get("RESULTS_ROOT", os.path.join(PROJECT_ROOT, "results"))
+
 _base_ = [
     '../_base_/models/prob_yolox_x.py',
     '../_base_/datasets/mot_challenge.py', '../_base_/default_runtime.py'
@@ -24,8 +30,7 @@ model = dict(
         test_cfg=dict(score_thr=0.01, nms=dict(type='nms', iou_threshold=0.7)),
         init_cfg=dict(
             type='Pretrained',
-            checkpoint=  # noqa: E251
-            f"/home/results/{weights_path}/latest.pth"  # noqa: E501
+            checkpoint=os.path.join(RESULTS_ROOT, weights_path, "latest.pth")  # noqa: E251
         )
     ),
     motion=dict(type='KalmanFilterWithUncertainty'),
