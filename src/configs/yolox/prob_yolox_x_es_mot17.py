@@ -5,7 +5,7 @@ RESULTS_ROOT = os.environ.get("RESULTS_ROOT", os.path.join(PROJECT_ROOT, "result
 CHECKPOINT_ROOT = os.environ.get(
     "CHECKPOINT_ROOT", os.path.join(PROJECT_ROOT, "src", "checkpoints")
 )
-DATA_ROOT = os.environ.get("DATA_ROOT", os.path.join(PROJECT_ROOT, "src", "data"))
+DATA_ROOT = os.environ.get("DATA_ROOT", os.path.join(PROJECT_ROOT, "data"))
 
 _base_ = [
     '../_base_/models/prob_yolox_x.py',

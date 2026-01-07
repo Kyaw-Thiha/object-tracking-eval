@@ -48,8 +48,8 @@ test_pipeline = [
     ),
 ]
 # Example:
-# DATA_ROOT = os.environ.get("DATA_ROOT", os.path.join(PROJECT_ROOT, "src", "data"))
-# data_root = os.path.join(DATA_ROOT, 'MOT17')
+# DATA_ROOT = os.environ.get("DATA_ROOT", os.path.join(PROJECT_ROOT, "data"))
+# data_root = os.path.join(DATA_ROOT, "MOT17")
 data_root = str(MOT17_ROOT)
 data = dict(
     samples_per_gpu=2,
