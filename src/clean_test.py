@@ -18,6 +18,7 @@ from datasets.mot17_dataset import MOT17CocoDataset
 from torch.utils.data import DataLoader
 
 SRC_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = SRC_ROOT.parent
 REPO_ROOT = SRC_ROOT.parent
 YOLOX_ROOT = REPO_ROOT / "object_detection_yolox"
 sys.path.append(str(YOLOX_ROOT))
@@ -87,7 +88,7 @@ def build_mot17_dataloader(ann_file, img_prefix, batch_size=4, num_workers=4, in
 
 
 def main(debug=False):
-    mot17_root = SRC_ROOT / "data" / "MOT17"
+    mot17_root = PROJECT_ROOT / "data" / "MOT17"
     test_image_path = mot17_root / "test" / "MOT17-03-FRCNN" / "img1" / "000001.jpg"
     test_image = np.array(Image.open(test_image_path).convert("RGB"))
     model_checkpoint_path = YOLOX_ROOT / "object_detection_yolox_2022nov.onnx"

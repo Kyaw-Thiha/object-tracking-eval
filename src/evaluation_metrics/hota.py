@@ -131,8 +131,9 @@ def multi_video_hota(result_dir, gt_dir):
 
 
 if __name__ == "__main__":
-    result_dir = SRC_ROOT / "outputs" / "test_pipeline_prob_yolox_x_uncertainty"
-    gt_dir = SRC_ROOT / "data" / "MOT17" / "train"
+    PROJECT_ROOT = SRC_ROOT.parent
+    result_dir = PROJECT_ROOT / "outputs" / "test_pipeline_prob_yolox_x_uncertainty"
+    gt_dir = PROJECT_ROOT / "data" / "MOT17" / "train"
 
     result = multi_video_hota(str(result_dir), str(gt_dir))
     print("HOTA/AssA results:", result)

@@ -99,9 +99,9 @@ def multi_video_detA(result_dir_path, det_dir_path) -> dict:
 
 
 if __name__ == "__main__":
-
-    result_dir = SRC_ROOT / "outputs" / "test_pipeline_prob_yolox_x_uncertainty"
-    gt_dir = SRC_ROOT / "data" / "MOT17" / "train"
+    PROJECT_ROOT = SRC_ROOT.parent
+    result_dir = PROJECT_ROOT / "outputs" / "test_pipeline_prob_yolox_x_uncertainty"
+    gt_dir = PROJECT_ROOT / "data" / "MOT17" / "train"
 
     result = multi_video_detA(str(result_dir), str(gt_dir))
 

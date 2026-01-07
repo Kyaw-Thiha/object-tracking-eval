@@ -407,8 +407,9 @@ def get_conference_interval(data):
 
 if __name__ == "__main__":
     # if comparing with ground truth, make sure ground truth file is the second file. 
-    outputs_root = SRC_ROOT / "outputs"
-    data_root = SRC_ROOT / "data"
+    PROJECT_ROOT = SRC_ROOT.parent
+    outputs_root = PROJECT_ROOT / "outputs"
+    data_root = PROJECT_ROOT / "data"
 
     output_1_paths = [
         str(outputs_root / "testrun_mot17_half_train_uncertainty_tracker" / "MOT17-02-DPM.txt"),
@@ -450,5 +451,5 @@ if __name__ == "__main__":
 
     dataset_dir = str(data_root / "MOT17" / "train")
     output_dir = str(outputs_root / "test_pipeline_identity_uncertainty")
-    plot_save_path = str(SRC_ROOT / "plots" / "debug" / "pipeline_test")
+    plot_save_path = str(PROJECT_ROOT / "plots" / "debug" / "pipeline_test")
     print(multi_video_track_diff(dataset_dir, output_dir, example_image_path, plot_save_path))

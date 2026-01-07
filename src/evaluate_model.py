@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader
 import argparse
 
 SRC_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = SRC_ROOT.parent
 
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -39,7 +40,7 @@ class MOTDetector(torch.nn.Module):
 
 def build_mot17_dataloader(batch_size=4, num_workers=0, input_size=(640, 640)):
     # --- Build MOT17 dataset + dataloader ---
-    mot17_root = SRC_ROOT / "data" / "MOT17"
+    mot17_root = PROJECT_ROOT / "data" / "MOT17"
     ann_file_path = mot17_root / "annotations" / "half-train_cocoformat.json"
     # ann_file_path = mot17_root / "annotations" / "half-val_cocoformat.json"
     
@@ -93,7 +94,7 @@ def main(debug=False):
 
     args = parse_args()
 
-    output_dir = SRC_ROOT / "outputs" / f"testrun_image_noise_mot17_half_train_{args.tracker}"
+    output_dir = PROJECT_ROOT / "outputs" / f"testrun_image_noise_mot17_half_train_{args.tracker}"
 
     # --- Initialize Tracker
     if args.tracker == 'uncertainty_tracker':

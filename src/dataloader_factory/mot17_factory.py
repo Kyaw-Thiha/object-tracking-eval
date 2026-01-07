@@ -5,11 +5,12 @@ from torch.utils.data import ConcatDataset
 from pathlib import Path
 
 SRC_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = SRC_ROOT.parent
 
 
 def factory(batch_size=4, num_workers=0, input_size=(640, 640)):
     # --- Build MOT17 dataset + dataloader ---
-    mot17_root = SRC_ROOT / "data" / "MOT17"
+    mot17_root = PROJECT_ROOT / "data" / "MOT17"
     ann_file_path_train = mot17_root / "annotations" / "half-train_cocoformat.json"
     ann_file_path_val = mot17_root / "annotations" / "half-val_cocoformat.json"
     
