@@ -9,14 +9,9 @@ Note that the python version needs to be 3.10 due to `mmcv-full` package version
 conda create -n object-tracking-eval python=3.10 -y
 ```
 
-2. Activate the virutal environment.
+2. Activate the virtual environment.
 ```bash
 conda activate object-tracking-eval
-```
-
-3. Install `scipy` and `numpy` from conda.
-```bash
-conda install -n object-tracking-eval -c conda-forge scipy=1.16.3 numpy=2.1.2
 ```
 
 4. Install the specific torch versions.

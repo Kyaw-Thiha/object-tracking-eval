@@ -3,11 +3,11 @@ matplotlib
 Pillow
 opencv-python
 argcomplete
-pycocotools
+pycocotools==2.0.8
 wandb
 tensorboard
 pandas
-scipy
+scipy==1.15.3
 tqdm
 lap
 addict
