@@ -1,3 +1,8 @@
+import os
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+RESULTS_ROOT = os.environ.get("RESULTS_ROOT", os.path.join(PROJECT_ROOT, "results"))
+
 _base_ = [
     '../_base_/models/yolox_x.py',
     '../_base_/datasets/bdd100k_det.py', '../_base_/default_runtime.py'
@@ -13,7 +18,7 @@ mode_switch_epoch = 10
 start_eval_epoch = total_epochs - mode_switch_epoch - 1
 interval = 5
 exp_name = "yolox_x_bdd"
-out_dir = "/home/results/" + exp_name
+out_dir = os.path.join(RESULTS_ROOT, exp_name)
 load_from = '/home/misc/yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth'  # noqa
 resume_from = None
 

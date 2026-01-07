@@ -1,3 +1,8 @@
+import os
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+RESULTS_ROOT = os.environ.get("RESULTS_ROOT", os.path.join(PROJECT_ROOT, "results"))
+
 _base_ = [
     '../_base_/models/yolox_x.py',
     '../_base_/datasets/mot_challenge_det.py', '../_base_/default_runtime.py'
@@ -8,7 +13,7 @@ USE_MMDET=True
 img_scale = (800, 1440)
 samples_per_gpu = 4
 exp_name = "yolox_mot17-half"
-out_dir = "/home/results/" + exp_name
+out_dir = os.path.join(RESULTS_ROOT, exp_name)
 load_from = '/home/misc/bytetrack_yolox_x_crowdhuman_mot17-private-half_20211218_205500-1985c9f0.pth'  # noqa
 resume_from = None
 total_epochs = 100
