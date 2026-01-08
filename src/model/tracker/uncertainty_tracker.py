@@ -27,7 +27,7 @@ class UncertaintyTracker(OCSORTTracker, ProbabilisticTracker):
                  primary_fn=None,
                  primary_cascade=None,
                  secondary_fn=None,
-                 secondary_cascade=False,
+                 secondary_cascade=None,
                  expand_boxes=False,
                  percent=0.25,
                  ellipse_filter=False,
