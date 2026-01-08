@@ -12,7 +12,7 @@
 ```bash
 python -X faulthandler src/evaluation_pipeline.py \
     --dataloader_factory camel_factory.py \
-    --dataset_dir data/camel_dataset/test \
+    --dataset_dir data/camel_dataset/test_half \
     --model_factory prob_yolox.py \
     --tracker probabilistic_byte_tracker \
     --device cuda \
