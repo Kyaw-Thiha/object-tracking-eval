@@ -8,7 +8,7 @@ SRC_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = SRC_ROOT.parent
 
 
-def factory(batch_size=2, num_workers=0, input_size=(640, 640)):
+def factory(batch_size=2, num_workers=0, input_size=(336, 256)):
     # --- Build dataset + dataloader ---
     dataset_dir = PROJECT_ROOT / "data" / "camel_dataset"
     ann_file_path_test = dataset_dir / "annotations" / "test_cocoformat.json"

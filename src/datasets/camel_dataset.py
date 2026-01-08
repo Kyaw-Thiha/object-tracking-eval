@@ -37,7 +37,6 @@ class CAMELCocoDataset(Dataset):
         img_info = self.coco.loadImgs(img_id)[0]
         path = os.path.join(self.img_prefix, img_info["file_name"])
         img = cv2.imread(path)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         # --- GT boxes ---
         boxes, labels = [], []
@@ -49,8 +48,8 @@ class CAMELCocoDataset(Dataset):
         boxes = torch.tensor(boxes, dtype=torch.float32) if boxes else torch.zeros((0, 4))
         labels = torch.tensor(labels, dtype=torch.long) if labels else torch.zeros((0,), dtype=torch.long)
 
-        img_tensor, scale = self.preprocess(img)
-        ih, iw = self.input_size
+        img_tensor, scale, pad_shape = self.preprocess(img)
+        ih, iw = pad_shape
         img_meta = {
             "ori_shape": img.shape,
             "img_shape": (ih, iw, 3),
@@ -79,8 +78,10 @@ class CAMELCocoDataset(Dataset):
         nh, nw = int(h * scale), int(w * scale)
 
         resized = cv2.resize(img, (nw, nh))
-        canvas = np.full((ih, iw, 3), 114, dtype=np.uint8)
+        pad_h = int(np.ceil(nh / 32) * 32)
+        pad_w = int(np.ceil(nw / 32) * 32)
+        canvas = np.full((pad_h, pad_w, 3), 114, dtype=np.uint8)
         canvas[:nh, :nw, :] = resized
 
-        tensor = torch.from_numpy(canvas).permute(2, 0, 1).float() / 255.0
-        return tensor, scale
+        tensor = torch.from_numpy(canvas).permute(2, 0, 1).float()
+        return tensor, scale, (pad_h, pad_w)
