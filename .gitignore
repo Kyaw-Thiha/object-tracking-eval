@@ -29,3 +29,12 @@ src/annotated_videos/
 
 # model checkpoints
 *.pth
+
+# Artifact folders
+data/
+checkpoints/
+results/
+outputs/
+evaluation_results/
+plots/
+work_dirs/
