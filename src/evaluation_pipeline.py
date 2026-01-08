@@ -283,6 +283,7 @@ def main(debug=False):
 
                     img_meta = targets[j]["img_metas"]
                     frame_id = targets[j]["frame_id"]
+                    frame_id_tracker = frame_id - 1
                     video_id = targets[j]["video_id"]
                     scale_factor = img_meta["scale_factor"]
 
@@ -304,7 +305,7 @@ def main(debug=False):
                         bboxes=det_bboxes,
                         bbox_covs=bbox_covs,
                         labels=det_labels,
-                        frame_id=frame_id,
+                        frame_id=frame_id_tracker,
                         rescale=False,
                     )
                     # print(f"After tracking, num_tracks: {track_bboxes.shape[0]}")
