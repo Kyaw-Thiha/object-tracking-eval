@@ -1,4 +1,4 @@
-numpy==2.1.2
+numpy<2
 matplotlib
 Pillow
 opencv-python
@@ -7,7 +7,7 @@ pycocotools==2.0.8
 wandb
 tensorboard
 pandas
-scipy==1.15.3
+scipy<=1.7.3
 tqdm
 lap
 addict
@@ -17,8 +17,8 @@ seaborn
 scalabel
 torch
 torchvision
-mmcv-full
-mmdet
-mmtrack
+mmcv-full==1.7.2
+mmdet==2.28.2
+mmtrack==0.14.0
 git+https://github.com/bdd100k/bdd100k.git
 git+https://github.com/JonathonLuiten/TrackEval.git
