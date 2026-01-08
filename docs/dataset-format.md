@@ -58,3 +58,14 @@ dataset_root/
 }
 ```
 
+## Tracker Inference
+For the outputs in `outputs/<name>/*.txt`, each row is in `MOT-style` format
+1. frame_id
+2. track_id
+3. x (top‑left)
+4. y (top‑left)
+5. w
+6. h
+7. score
+8. class_id (your code always writes 1)
+9. visibility (set to -1 in your code)
