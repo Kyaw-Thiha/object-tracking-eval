@@ -1,5 +1,5 @@
 # dataset settings
-from .paths import BDD_ROOT
+from configs._base_.paths import BDD_ROOT
 
 dataset_type = 'BDDVideoDataset'
 data_root = str(BDD_ROOT)

@@ -1,4 +1,4 @@
-from .._base_.paths import RESULTS_ROOT
+from configs._base_.paths import RESULTS_ROOT
 
 _base_ = [
     '../bayesod/bayesod_cov-int.py',

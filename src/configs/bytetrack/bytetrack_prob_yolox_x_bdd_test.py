@@ -1,6 +1,6 @@
 """This config is only for tracking inference.
 For detector training, please use the appropriate config for the detector."""
-from .._base_.paths import RESULTS_ROOT, BDD_ROOT
+from configs._base_.paths import RESULTS_ROOT, BDD_ROOT
 
 _base_ = [
     '../_base_/models/prob_yolox_x.py',

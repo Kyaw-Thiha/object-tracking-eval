@@ -1,7 +1,7 @@
 """Dataset settings.
 Credits to https://github.com/SysCV
 """
-from .paths import BDD_ROOT
+from configs._base_.paths import BDD_ROOT
 
 dataset_type = "BDD100KDetDataset"  # pylint: disable=invalid-name
 data_root = str(BDD_ROOT)  # pylint: disable=invalid-name

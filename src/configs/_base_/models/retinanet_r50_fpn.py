@@ -1,5 +1,5 @@
 # model settings
-from .paths import CHECKPOINT_ROOT
+from configs._base_.paths import CHECKPOINT_ROOT
 
 num_classes = 80
 

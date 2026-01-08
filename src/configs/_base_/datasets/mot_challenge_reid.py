@@ -1,4 +1,4 @@
-from .paths import MOT17_ROOT
+from configs._base_.paths import MOT17_ROOT
 
 dataset_type = 'ReIDDataset'
 img_norm_cfg = dict(

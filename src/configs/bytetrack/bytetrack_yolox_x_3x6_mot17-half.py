@@ -1,4 +1,4 @@
-from .._base_.paths import (
+from configs._base_.paths import (
     RESULTS_ROOT,
     WORK_DIR_ROOT,
     MOT17_ROOT,

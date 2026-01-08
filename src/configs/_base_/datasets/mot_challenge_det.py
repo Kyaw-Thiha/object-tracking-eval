@@ -1,5 +1,5 @@
 # dataset settings
-from .paths import MOT17_ROOT
+from configs._base_.paths import MOT17_ROOT
 
 dataset_type = 'CocoDataset'
 img_norm_cfg = dict(

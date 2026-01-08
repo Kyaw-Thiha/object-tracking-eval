@@ -1,4 +1,11 @@
+import sys
+from pathlib import Path
 import os
+
+# Ensure repo src is on sys.path when running from repo root or src/.
+SRC_DIR = Path(__file__).resolve().parent
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 import torch
 import numpy as np
 from PIL import Image
