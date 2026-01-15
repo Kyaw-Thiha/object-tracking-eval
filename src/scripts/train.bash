@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(cd "$DIR/.." && pwd)"
+SRC_ROOT="$(cd "$DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SRC_ROOT/.." && pwd)"
 RESULTS_ROOT="${RESULTS_ROOT:-$PROJECT_ROOT/results}"
 NUM_GPUS=
 CONFIG=
@@ -12,7 +13,7 @@ EVAL=true
 usage() {
     echo \
     """
-    Usage: bash train.bash 
+    Usage: bash src/scripts/train.bash 
                 [--gpus <num_gpus>]
                 [--config <config>]
                 [--rm]
@@ -76,7 +77,7 @@ EXP=${EXP[-1]}
 EXP=${EXP%.*}
 OUTPUT="$RESULTS_ROOT/$EXP"
 
-if [ ! -f "$DIR/$CONFIG" ]; then
+if [ ! -f "$SRC_ROOT/$CONFIG" ]; then
     echo "Config file $CONFIG not found."
     exit 1
 else
@@ -105,12 +106,12 @@ if [ "$EVAL" = false ]; then
     ARGS+=" --no-validate"
 fi
 
-cd "$DIR"
+cd "$SRC_ROOT"
 if [[ $NUM_GPUS -gt 1 ]]
 then
     #* NCCL_ASYNC_ERROR_HANDLING is enabled to use timeout arg for `init_process_group`
     #* see https://pytorch.org/docs/stable/distributed.html#initialization
-    NCCL_ASYNC_ERROR_HANDLING=1 bash ./dist_train.sh $CONFIG $NUM_GPUS $ARGS
+    NCCL_ASYNC_ERROR_HANDLING=1 bash "$DIR/dist_train.sh" $CONFIG $NUM_GPUS $ARGS
 else
     python -m train $CONFIG \
     $ARGS \

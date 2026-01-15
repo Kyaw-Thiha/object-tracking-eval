@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(cd "$DIR/.." && pwd)"
+SRC_ROOT="$(cd "$DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SRC_ROOT/.." && pwd)"
 RESULTS_ROOT="${RESULTS_ROOT:-$PROJECT_ROOT/results}"
 CONFIG=
 DATASET=
@@ -10,7 +11,7 @@ SKIP=false
 usage() {
     echo \
     """
-    Usage: bash visualize.bash 
+    Usage: bash src/scripts/visualize.bash 
                 [--config <config>]
                 [-d|--dataset <dataset>]
                 [--skip-fn]
@@ -63,7 +64,7 @@ EXP=${EXP[-1]}
 EXP=${EXP%.*}
 EXP_DIR="$RESULTS_ROOT/$EXP"
 
-if [ ! -f "$DIR/$CONFIG" ]; then
+if [ ! -f "$SRC_ROOT/$CONFIG" ]; then
     echo "Config file $CONFIG not found."
     exit 1
 else
@@ -87,14 +88,14 @@ fi
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
-cd "$DIR"
+cd "$SRC_ROOT"
 if [ "$DATASET" = "MOT" ]; then
     echo "Visualizing MOT17/20 results..."
-    python src/visualization/mot_visualize.py $CONFIG \
+    python visualization/mot_visualize.py $CONFIG \
         $ARGS
 elif [ "$DATASET" = "BDD" ]; then
     echo "Visualizing BDD MOT results..."
-    python src/visualization/bdd_visualize.py $CONFIG \
+    python visualization/bdd_visualize.py $CONFIG \
         $ARGS
 else
     echo "Dataset not specified or not supported."

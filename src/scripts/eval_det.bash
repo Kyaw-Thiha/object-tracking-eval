@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(cd "$DIR/.." && pwd)"
+SRC_ROOT="$(cd "$DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SRC_ROOT/.." && pwd)"
 RESULTS_ROOT="${RESULTS_ROOT:-$PROJECT_ROOT/results}"
-NUM_GPUS=1
 CONFIG=
+CHECKPOINT=
 REMOVE=false
 SHOW=false
 EVAL=false
@@ -12,16 +13,16 @@ EVAL=false
 usage() {
     echo \
     """
-    Usage: bash eval_mot.bash 
-                [--gpus <num_gpus>]
+    Usage: bash src/scripts/eval_det.bash 
                 [--config <config>]
+                [--checkpoint <checkpoint path>]
                 [--show]
                 [--eval]
                 [--rm]
 
     Options:
-        --gpus <num_gpus>   Number of GPUs to use
         --config <config>   Config file to use
+        --checkpoint <checkpoint path>   Checkpoint to use for evaluation
         --show              Show visualization results
         --eval              Evaluate results with metrics
         --rm                Remove previous results
@@ -36,13 +37,13 @@ fi
 
 while [ "$1" != "" ]; do
     case $1 in
-        --gpus)
-            NUM_GPUS=$2
+        --config)
+            CONFIG=$2
             shift
             shift
             ;;
-        --config)
-            CONFIG=$2
+        --checkpoint)
+            CHECKPOINT=$2
             shift
             shift
             ;;
@@ -76,7 +77,7 @@ EXP=${EXP[-1]}
 EXP=${EXP%.*}
 EXP_DIR="$RESULTS_ROOT/$EXP"
 
-if [ ! -f "$DIR/$CONFIG" ]; then
+if [ ! -f "$SRC_ROOT/$CONFIG" ]; then
     echo "Config file $CONFIG not found."
     exit 1
 else
@@ -87,35 +88,28 @@ EVAL_DIR="$EXP_DIR/eval"
 mkdir -p "$EVAL_DIR"
 
 ARGS="--work-dir $EVAL_DIR \
+--checkpoint $CHECKPOINT \
 --out $EVAL_DIR/results.pkl"
 
 #? Evaluate if --eval is provided
 if [ "$EVAL" = true ]; then
-    ARGS+=" --eval track"
+    ARGS+=" --eval bbox scoring"
+fi
+
+#? Show results if --show is provided
+if [ "$SHOW" = true ]; then
+    SHOW_DIR="$EVAL_DIR/show"
+    mkdir -p "$SHOW_DIR"
+    ARGS+=" --show-dir $SHOW_DIR"
 fi
 
 #? remove previous results
 if [ "$REMOVE" = true ]; then
-    echo "Replacing previous results..."
+    echo "Removing previous results..."
     [ -f "$EVAL_DIR/results.pkl" ] && rm "$EVAL_DIR/results.pkl"
 fi
 
-cd "$DIR"
-if [[ $NUM_GPUS -gt 1 ]]
-then
-    #* NCCL_ASYNC_ERROR_HANDLING is enabled to use timeout arg for `init_process_group`
-    #* see https://pytorch.org/docs/stable/distributed.html#initialization
-    NCCL_ASYNC_ERROR_HANDLING=1 bash ./dist_test.sh $CONFIG $NUM_GPUS $ARGS
-else
-    #? Show results if --show is provided
-    if [ "$SHOW" = true ]; then
-        SHOW_DIR="$EXP_DIR/show"
-        [ -d "$SHOW_DIR" ] && echo "Removing previous visualizations..." && \
-        rm -rf "$SHOW_DIR"
-        mkdir -p "$SHOW_DIR"
-        ARGS+=" --show-dir $SHOW_DIR"
-    fi
-    python -m test $CONFIG \
+cd "$SRC_ROOT"
+python -m test $CONFIG \
     $ARGS \
     --gpu-id 0
-fi
