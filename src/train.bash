@@ -112,7 +112,7 @@ then
     #* see https://pytorch.org/docs/stable/distributed.html#initialization
     NCCL_ASYNC_ERROR_HANDLING=1 bash ./dist_train.sh $CONFIG $NUM_GPUS $ARGS
 else
-    python -m train $CONFIG \
+    python src/entrypoints/train.py $CONFIG \
     $ARGS \
     --gpu-id 0
 fi

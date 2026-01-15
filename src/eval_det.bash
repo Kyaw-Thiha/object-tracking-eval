@@ -109,6 +109,6 @@ if [ "$REMOVE" = true ]; then
 fi
 
 cd "$DIR"
-python -m test $CONFIG \
+python src/entrypoints/test.py $CONFIG \
     $ARGS \
     --gpu-id 0
