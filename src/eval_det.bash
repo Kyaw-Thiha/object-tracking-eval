@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-DIR=$(dirname "$0")
-DIR=${DIR%/}
+DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$DIR/.." && pwd)"
+RESULTS_ROOT="${RESULTS_ROOT:-$PROJECT_ROOT/results}"
 CONFIG=
 CHECKPOINT=
 REMOVE=false
@@ -73,7 +74,7 @@ done
 IFS='/' read -ra EXP <<< "$CONFIG"
 EXP=${EXP[-1]}
 EXP=${EXP%.*}
-EXP_DIR="/home/results/$EXP"
+EXP_DIR="$RESULTS_ROOT/$EXP"
 
 if [ ! -f "$CONFIG" ]; then
     echo "Config file $CONFIG not found."
@@ -82,7 +83,8 @@ else
     echo "CONFIG... $CONFIG"
 fi
 
-EVAL_DIR=$EXP_DIR/eval
+EVAL_DIR="$EXP_DIR/eval"
+mkdir -p "$EVAL_DIR"
 
 ARGS="--work-dir $EVAL_DIR \
 --checkpoint $CHECKPOINT \
@@ -95,16 +97,18 @@ fi
 
 #? Show results if --show is provided
 if [ "$SHOW" = true ]; then
-    ARGS+=" --show-dir $EVAL_DIR/show"
+    SHOW_DIR="$EVAL_DIR/show"
+    mkdir -p "$SHOW_DIR"
+    ARGS+=" --show-dir $SHOW_DIR"
 fi
 
 #? remove previous results
 if [ "$REMOVE" = true ]; then
     echo "Removing previous results..."
-    [ -f "$EVAL_DIR/results.pkl" ] && rm $EVAL_DIR/results.pkl
+    [ -f "$EVAL_DIR/results.pkl" ] && rm "$EVAL_DIR/results.pkl"
 fi
 
-cd $DIR
+cd "$DIR"
 python -m test $CONFIG \
     $ARGS \
     --gpu-id 0

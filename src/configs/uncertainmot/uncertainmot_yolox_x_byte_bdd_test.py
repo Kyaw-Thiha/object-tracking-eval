@@ -1,5 +1,15 @@
 """This config is only for tracking inference.
 For detector training, please use the appropriate config for the detector."""
+
+import os
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+RESULTS_ROOT = os.environ.get("RESULTS_ROOT", os.path.join(PROJECT_ROOT, "results"))
+CHECKPOINT_ROOT = os.environ.get(
+    "CHECKPOINT_ROOT", os.path.join(PROJECT_ROOT, "checkpoints")
+)
+DATA_ROOT = os.environ.get("DATA_ROOT", os.path.join(PROJECT_ROOT, "data"))
+
 _base_ = [
     '../_base_/models/prob_yolox_x.py',
     '../_base_/datasets/bdd_mot.py', '../_base_/default_runtime.py'
@@ -25,8 +35,8 @@ model = dict(
         init_cfg=dict(
             type='Pretrained',
             checkpoint=  # noqa: E251
-            # f"/home/results/{weights_path}/latest.pth"  # noqa: E501
-            f"/home/allynbao/project/UncertaintyTrack/src/checkpoints/{weights_path}/latest.pth"  # noqa: E501
+            # os.path.join(RESULTS_ROOT, weights_path, "latest.pth")  # noqa: E501
+            os.path.join(CHECKPOINT_ROOT, weights_path, "latest.pth")  # noqa: E501
         )
     ),
     motion=dict(type='KalmanFilterWithUncertainty'),
@@ -87,7 +97,6 @@ test_pipeline = [
             dict(type='VideoCollect', keys=['img'])
         ])
 ]
-data_root = '/home/allynbao/project/UncertaintyTrack/src/data/bdd100k/'
 data = dict(
     workers_per_gpu=8,
     persistent_workers=True,
@@ -96,9 +105,9 @@ data = dict(
         # interpolate_tracks_cfg=dict(min_num_frames=5, max_num_frames=20)),
     test=dict(
         pipeline=test_pipeline,
-        ann_file=data_root + 'jsons/box_track_test_cocofmt.json',
+        ann_file=os.path.join(DATA_ROOT, 'bdd100k', 'jsons', 'box_track_test_cocofmt.json'),
         test_load_ann=False,
-        img_prefix=data_root + 'images/track/test/'))
+        img_prefix=os.path.join(DATA_ROOT, 'bdd100k', 'images', 'track', 'test')))
         # interpolate_tracks_cfg=dict(min_num_frames=5, max_num_frames=20)))
 
 search_metrics = ['MOTA', 'IDF1', 'FP', 'FN', 'IDSw']

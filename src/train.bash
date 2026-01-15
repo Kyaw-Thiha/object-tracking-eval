@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-DIR=$(dirname "$0")
-DIR=${DIR%/}
+DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$DIR/.." && pwd)"
+RESULTS_ROOT="${RESULTS_ROOT:-$PROJECT_ROOT/results}"
 NUM_GPUS=
 CONFIG=
 REMOVE=false
@@ -73,7 +74,7 @@ done
 IFS='/' read -ra EXP <<< "$CONFIG"
 EXP=${EXP[-1]}
 EXP=${EXP%.*}
-OUTPUT="/home/results/$EXP"
+OUTPUT="$RESULTS_ROOT/$EXP"
 
 if [ ! -f "$DIR/$CONFIG" ]; then
     echo "Config file $CONFIG not found."
@@ -84,9 +85,10 @@ fi
 
 if [ "$REMOVE" = true ]; then
     echo "Removing previous results..."
-    [ -d $OUTPUT ] && rm -rf $OUTPUT
+    [ -d "$OUTPUT" ] && rm -rf "$OUTPUT"
 fi
 
+mkdir -p "$OUTPUT"
 echo "Saving results to... $OUTPUT"
 
 ARGS="--work-dir $OUTPUT \
@@ -103,7 +105,7 @@ if [ "$EVAL" = false ]; then
     ARGS+=" --no-validate"
 fi
 
-cd $DIR
+cd "$DIR"
 if [[ $NUM_GPUS -gt 1 ]]
 then
     #* NCCL_ASYNC_ERROR_HANDLING is enabled to use timeout arg for `init_process_group`

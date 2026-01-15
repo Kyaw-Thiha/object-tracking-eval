@@ -1,6 +1,7 @@
 import argparse
 import os
 import os.path as osp
+from pathlib import Path
 
 import mmcv
 import motmetrics as mm
@@ -13,6 +14,7 @@ from mmtrack.datasets import build_dataset
 
 from core import *
 
+SRC_ROOT = Path(__file__).resolve().parent
 
 BDD_CATEGORIES = [
     'pedestrian', 'rider', 'car', 'truck', 'bus', 'train', 'motorcycle',
@@ -103,9 +105,8 @@ def main():
     results = mmcv.load(args.result_file)
     
     #? Show track results specified by txt file if it exists
-    # hard-coded path for now :(
-    filter_txt = '/home/misc/show_viz.txt'
-    if osp.exists(filter_txt):
+    filter_txt = SRC_ROOT / "show_viz.txt"
+    if filter_txt.exists():
         df = pd.read_csv(filter_txt,
                 sep=r'\s+|\t+|,',
                 skipinitialspace=True,

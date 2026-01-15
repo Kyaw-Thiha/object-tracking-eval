@@ -1,3 +1,12 @@
+import os
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+RESULTS_ROOT = os.environ.get("RESULTS_ROOT", os.path.join(PROJECT_ROOT, "results"))
+CHECKPOINT_ROOT = os.environ.get(
+    "CHECKPOINT_ROOT", os.path.join(PROJECT_ROOT, "checkpoints")
+)
+DATA_ROOT = os.environ.get("DATA_ROOT", os.path.join(PROJECT_ROOT, "data"))
+
 _base_ = [
     '../_base_/models/prob_yolox_x.py',
     '../_base_/datasets/mot_challenge_det.py', '../_base_/default_runtime.py'
@@ -15,8 +24,11 @@ mode_switch_epoch = 10
 start_eval_epoch = total_epochs - mode_switch_epoch - 1   #* start eval one epoch before switching mode
 interval = 5
 exp_name = "prob_yolox_x_nll_mot17-half"
-out_dir = "/home/results/" + exp_name
-load_from = '/home/misc/yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth'  # noqa
+out_dir = os.path.join(RESULTS_ROOT, exp_name)
+load_from = os.path.join(
+    CHECKPOINT_ROOT,
+    "yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth",
+)  # noqa
 # resume_from = out_dir + "/latest.pth"
 resume_from = None
 
@@ -118,13 +130,14 @@ data = dict(
         dataset=dict(
             type='ProbabilisticCocoDataset',
             ann_file=[
-                '/home/data/MOT17/annotations/half-train_cocoformat.json',
-                '/home/data/crowdhuman/annotations/crowdhuman_train.json',
-                '/home/data/crowdhuman/annotations/crowdhuman_val.json'
+                os.path.join(DATA_ROOT, 'MOT17', 'annotations', 'half-train_cocoformat.json'),
+                os.path.join(DATA_ROOT, 'crowdhuman', 'annotations', 'crowdhuman_train.json'),
+                os.path.join(DATA_ROOT, 'crowdhuman', 'annotations', 'crowdhuman_val.json')
             ],
             img_prefix=[
-                '/home/data/MOT17/train', '/home/data/crowdhuman/train',
-                '/home/data/crowdhuman/val'
+                os.path.join(DATA_ROOT, 'MOT17', 'train'),
+                os.path.join(DATA_ROOT, 'crowdhuman', 'train'),
+                os.path.join(DATA_ROOT, 'crowdhuman', 'val'),
             ],
             classes=('pedestrian', ),
             pipeline=[

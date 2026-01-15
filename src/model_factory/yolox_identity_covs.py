@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import List, Tuple
 
 import numpy as np
@@ -7,6 +8,9 @@ import torch.nn as nn
 
 from mmcv import Config
 from mmdet.models import build_detector
+
+SRC_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = SRC_ROOT.parent
 
 
 class IdentityCovYOLOXModelWrapper(nn.Module):
@@ -142,13 +146,12 @@ def _load_detector_from_checkpoint(
 
 
 def factory(device: str):
-
-    config_path = "/home/allynbao/project/UncertaintyTrack/src/configs/yolox/prob_yolox_x_es_mot17-half.py"
-    checkpoint_path = "/home/allynbao/project/UncertaintyTrack/src/checkpoints/prob_yolox_camel/epoch_26.pth"
+    config_path = SRC_ROOT / "configs" / "yolox" / "prob_yolox_x_es_mot17-half.py"
+    checkpoint_path = PROJECT_ROOT / "checkpoints" / "prob_yolox_camel" / "epoch_26.pth"
 
     detector = _load_detector_from_checkpoint(
-        config_path=config_path,
-        checkpoint_path=checkpoint_path,
+        config_path=str(config_path),
+        checkpoint_path=str(checkpoint_path),
         device=device,
     )
 

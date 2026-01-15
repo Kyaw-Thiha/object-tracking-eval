@@ -1,3 +1,9 @@
+from configs._base_.paths import (
+    RESULTS_ROOT,
+    WORK_DIR_ROOT,
+    MOT17_ROOT,
+)
+
 _base_ = [
     '../_base_/models/yolox_x.py',
     '../_base_/datasets/mot_challenge.py', '../_base_/default_runtime.py'
@@ -12,7 +18,7 @@ num_last_epochs = 1
 resume_from = None
 interval = 5
 exp_name = "pseudo_uncertainmot_yolox_x_3x6_mot17-half"
-out_dir = "/home/results/" + exp_name
+out_dir = str(RESULTS_ROOT / exp_name)
 
 model = dict(
     type='PseudoUncertainMOT',
@@ -28,9 +34,7 @@ model = dict(
         test_cfg=dict(score_thr=0.01, nms=dict(type='nms', iou_threshold=0.7)),
         init_cfg=dict(
             type='Pretrained',
-            checkpoint=  # noqa: E251
-            # f"/home/results/{weights_path}/latest.pth"  # noqa: E501
-            '/home/allynbao/project/UncertaintyTrack/src/work_dirs/test_run/latest.pth'
+            checkpoint=str(WORK_DIR_ROOT / 'test_run' / 'latest.pth')
         )
     ),
     motion=dict(type='KalmanFilterWithUncertainty'),
@@ -132,18 +136,12 @@ data = dict(
         dataset=dict(
             type='CocoDataset',
             ann_file=[
-                # '/home/data/MOT17/annotations/half-train_cocoformat.json',
-                # '/home/data/crowdhuman/annotations/crowdhuman_train.json',
-                # '/home/data/crowdhuman/annotations/crowdhuman_val.json'
-                '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/annotations/half-train_cocoformat.json',
-                '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/annotations/half-val_cocoformat.json'
+                str(MOT17_ROOT / 'annotations' / 'half-train_cocoformat.json'),
+                str(MOT17_ROOT / 'annotations' / 'half-val_cocoformat.json')
             ],
             img_prefix=[
-                # '/home/data/MOT17/train', 
-                # '/home/data/crowdhuman/train',
-                # '/home/data/crowdhuman/val'
-                '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train'
-                '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/test'
+                str(MOT17_ROOT / 'train'),
+                str(MOT17_ROOT / 'test')
             ],
             classes=('pedestrian', ),
             pipeline=[
@@ -162,8 +160,8 @@ data = dict(
         ))
     # test=dict(
     #     type='MOTChallengeDataset',  # or 'CocoVideoDataset' if needed by your tracker
-    #     ann_file='/home/allynbao/project/UncertaintyTrack/src/data/MOT17/annotations/half-train_cocoformat.json',
-    #     img_prefix='/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train',
+    #     ann_file='${DATA_ROOT}/MOT17/annotations/half-train_cocoformat.json',
+    #     img_prefix='${DATA_ROOT}/MOT17/train',
     #     classes=('pedestrian', ),
     #     pipeline=test_pipeline
     # ))

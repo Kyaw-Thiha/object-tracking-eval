@@ -1,3 +1,5 @@
+from configs._base_.paths import RESULTS_ROOT
+
 _base_ = [
     '../bayesod/bayesod_cov-int.py',
     '../_base_/datasets/mot_challenge.py', '../_base_/default_runtime.py'
@@ -13,8 +15,7 @@ model = dict(
         ),
         init_cfg=dict(
             type='Pretrained',
-            checkpoint=  # noqa: E251
-            '/home/results/bayesod_diag_cov-int_es_L1_att_1xb2_4e_mot17-half/latest.pth')
+            checkpoint=str(RESULTS_ROOT / 'bayesod_diag_cov-int_es_L1_att_1xb2_4e_mot17-half' / 'latest.pth'))
     ),
     motion=dict(type='KalmanFilter'),
     tracker=dict(

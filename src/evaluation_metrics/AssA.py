@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import numpy as np
 import scipy.stats
 from scipy.optimize import linear_sum_assignment
@@ -9,6 +10,8 @@ from evaluation_metrics.utils import (
     get_output_files_from_dir,
     compute_iou_matrix,
 )
+
+SRC_ROOT = Path(__file__).resolve().parents[1]
 
 
 def build_global_id_maps(gts, results):
@@ -308,8 +311,9 @@ def multi_video_AssA(result_dir_path, gt_dir_path):
 
 if __name__ == "__main__":
     # Example usage (adapt paths as needed)
-    RESULT_DIR = "/home/allynbao/project/UncertaintyTrack/src/outputs/test_pipeline_prob_yolox_x_uncertainty"
-    GT_DIR = "/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train"
+    PROJECT_ROOT = SRC_ROOT.parent
+    result_dir = PROJECT_ROOT / "outputs" / "test_pipeline_prob_yolox_x_uncertainty"
+    gt_dir = PROJECT_ROOT / "data" / "MOT17" / "train"
 
-    result = multi_video_AssA(RESULT_DIR, GT_DIR)
+    result = multi_video_AssA(str(result_dir), str(gt_dir))
     print("AssA CI over all videos:", result)

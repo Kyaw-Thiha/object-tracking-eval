@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import torch
 import numpy as np
 from PIL import Image
@@ -12,6 +13,9 @@ from datasets.mot17_dataset import MOT17CocoDataset
 from torch.utils.data import DataLoader
 
 import argparse
+
+SRC_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = SRC_ROOT.parent
 
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -36,13 +40,14 @@ class MOTDetector(torch.nn.Module):
 
 def build_mot17_dataloader(batch_size=4, num_workers=0, input_size=(640, 640)):
     # --- Build MOT17 dataset + dataloader ---
-    ann_file_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/annotations/half-train_cocoformat.json'
-    # ann_file_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/annotations/half-val_cocoformat.json'
+    mot17_root = PROJECT_ROOT / "data" / "MOT17"
+    ann_file_path = mot17_root / "annotations" / "half-train_cocoformat.json"
+    # ann_file_path = mot17_root / "annotations" / "half-val_cocoformat.json"
     
-    # ann_file_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/annotations/test_cocoformat.json'
-    image_prefix_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train'
-    # image_prefix_path = '/home/allynbao/project/UncertaintyTrack/src/data/MOT17/test'
-    dataset = MOT17CocoDataset(ann_file_path, image_prefix_path, input_size=input_size)
+    # ann_file_path = mot17_root / "annotations" / "test_cocoformat.json"
+    image_prefix_path = mot17_root / "train"
+    # image_prefix_path = mot17_root / "test"
+    dataset = MOT17CocoDataset(str(ann_file_path), str(image_prefix_path), input_size=input_size)
     def detection_collate_fn(batch):
         images = torch.stack([b[0] for b in batch])      # stack image tensors
         targets = [b[1] for b in batch]                  # keep list of dicts/arrays
@@ -89,7 +94,7 @@ def main(debug=False):
 
     args = parse_args()
 
-    output_dir = f"./outputs/testrun_image_noise_mot17_half_train_{args.tracker}/"
+    output_dir = PROJECT_ROOT / "outputs" / f"testrun_image_noise_mot17_half_train_{args.tracker}"
 
     # --- Initialize Tracker
     if args.tracker == 'uncertainty_tracker':

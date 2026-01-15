@@ -1,9 +1,13 @@
 import os
 import argparse
+from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401, needed for 3D projection
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+SRC_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = SRC_ROOT.parent
 
 def plot_track_stability_3D(annotation_file, N, output_dir="./plots/track_stability"):
     """
@@ -153,8 +157,8 @@ if __name__ == "__main__":
 
     os.makedirs("./plots/track_stability", exist_ok=True)
 
-    annotation_file = "/home/allynbao/project/UncertaintyTrack/src/outputs/bytetrack_results/MOT17-02-DPM.txt"
+    annotation_file = PROJECT_ROOT / "outputs" / "bytetrack_results" / "MOT17-02-DPM.txt"
     N = 5
 
-    plot_track_stability_3D(annotation_file, N, output_dir="./plots/track_stability")
-    plot_track_stability_2D(annotation_file, N, output_dir="./plots/track_stability")
+    plot_track_stability_3D(str(annotation_file), N, output_dir="./plots/track_stability")
+    plot_track_stability_2D(str(annotation_file), N, output_dir="./plots/track_stability")

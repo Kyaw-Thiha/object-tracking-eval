@@ -1,3 +1,12 @@
+import os
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+RESULTS_ROOT = os.environ.get("RESULTS_ROOT", os.path.join(PROJECT_ROOT, "results"))
+CHECKPOINT_ROOT = os.environ.get(
+    "CHECKPOINT_ROOT", os.path.join(PROJECT_ROOT, "checkpoints")
+)
+DATA_ROOT = os.environ.get("DATA_ROOT", os.path.join(PROJECT_ROOT, "data"))
+
 _base_ = [
     '../_base_/models/prob_yolox_x.py',
     '../_base_/datasets/mot_challenge_det.py', '../_base_/default_runtime.py'
@@ -22,13 +31,12 @@ mode_switch_epoch = 10
 start_eval_epoch = total_epochs - mode_switch_epoch - 1   #* start eval two epochs before switching mode
 interval = 5
 exp_name = f"prob_yolox_x_es_{DATASET}-half"
-# out_dir = "/home/results/" + exp_name
-out_dir = "/home/allynbao/project/UncertaintyTrack/src/checkpoints/" + exp_name
-# load_from = '/home/misc/yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth'  # noqa
-load_from = '/home/allynbao/project/UncertaintyTrack/src/checkpoints/yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth'  # noqa
-# resume_from = out_dir + "/latest.pth"
+out_dir = os.path.join(CHECKPOINT_ROOT, exp_name)
+# load_from = os.path.join(CHECKPOINT_ROOT, 'yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth')  # noqa
+load_from = os.path.join(CHECKPOINT_ROOT, 'yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth')  # noqa
+# resume_from = os.path.join(out_dir, "latest.pth")
 resume_from = None
-work_dir = "/home/allynbao/project/UncertaintyTrack/src/checkpoints/prob_yolox_camel/"
+work_dir = os.path.join(CHECKPOINT_ROOT, "prob_yolox_camel")
 
 model = dict(
     type='YOLOX',
@@ -131,10 +139,10 @@ data = dict(
         dataset=dict(
             type='ProbabilisticCocoDataset',
             ann_file=[
-                f'/home/allynbao/project/UncertaintyTrack/src/data/{DATASET}/annotations/half-train_cocoformat.json'
+                os.path.join(DATA_ROOT, DATASET, 'annotations', 'half-train_cocoformat.json')
             ],
             img_prefix=[
-                f'/home/allynbao/project/UncertaintyTrack/src/data/{DATASET}/train'
+                os.path.join(DATA_ROOT, DATASET, 'train')
             ],
             classes=CLASSES,
             pipeline=[
@@ -145,13 +153,13 @@ data = dict(
         pipeline=train_pipeline),
     val=dict(
         type='ProbabilisticCocoDataset',
-        ann_file=f'/home/allynbao/project/UncertaintyTrack/src/data/{DATASET}/annotations/half-val_cocoformat.json',
-        img_prefix=f'/home/allynbao/project/UncertaintyTrack/src/data/{DATASET}/train',
+        ann_file=os.path.join(DATA_ROOT, DATASET, 'annotations', 'half-val_cocoformat.json'),
+        img_prefix=os.path.join(DATA_ROOT, DATASET, 'train'),
         pipeline=test_pipeline),
     test=dict(
         type='ProbabilisticCocoDataset',
-        ann_file=f'/home/allynbao/project/UncertaintyTrack/src/data/{DATASET}/annotations/test_cocoformat.json',
-        img_prefix=f'/home/allynbao/project/UncertaintyTrack/src/data/{DATASET}/test',
+        ann_file=os.path.join(DATA_ROOT, DATASET, 'annotations', 'test_cocoformat.json'),
+        img_prefix=os.path.join(DATA_ROOT, DATASET, 'test'),
         pipeline=test_pipeline))
 
 # you need to set mode='dynamic' if you are using pytorch<=1.5.0

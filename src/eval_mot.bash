@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-DIR=$(dirname "$0")
-DIR=${DIR%/}
+DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$DIR/.." && pwd)"
+RESULTS_ROOT="${RESULTS_ROOT:-$PROJECT_ROOT/results}"
 NUM_GPUS=1
 CONFIG=
 REMOVE=false
@@ -73,7 +74,7 @@ done
 IFS='/' read -ra EXP <<< "$CONFIG"
 EXP=${EXP[-1]}
 EXP=${EXP%.*}
-EXP_DIR="/home/results/$EXP"
+EXP_DIR="$RESULTS_ROOT/$EXP"
 
 if [ ! -f "$DIR/$CONFIG" ]; then
     echo "Config file $CONFIG not found."
@@ -82,7 +83,8 @@ else
     echo "CONFIG... $CONFIG"
 fi
 
-EVAL_DIR=$EXP_DIR/eval
+EVAL_DIR="$EXP_DIR/eval"
+mkdir -p "$EVAL_DIR"
 
 ARGS="--work-dir $EVAL_DIR \
 --out $EVAL_DIR/results.pkl"
@@ -95,10 +97,10 @@ fi
 #? remove previous results
 if [ "$REMOVE" = true ]; then
     echo "Replacing previous results..."
-    [ -f "$EVAL_DIR/results.pkl" ] && rm $EVAL_DIR/results.pkl
+    [ -f "$EVAL_DIR/results.pkl" ] && rm "$EVAL_DIR/results.pkl"
 fi
 
-cd $DIR
+cd "$DIR"
 if [[ $NUM_GPUS -gt 1 ]]
 then
     #* NCCL_ASYNC_ERROR_HANDLING is enabled to use timeout arg for `init_process_group`
@@ -107,10 +109,10 @@ then
 else
     #? Show results if --show is provided
     if [ "$SHOW" = true ]; then
-        SHOW_DIR=$EXP_DIR/show
+        SHOW_DIR="$EXP_DIR/show"
         [ -d "$SHOW_DIR" ] && echo "Removing previous visualizations..." && \
-        rm -rf $SHOW_DIR
-        mkdir -p $SHOW_DIR
+        rm -rf "$SHOW_DIR"
+        mkdir -p "$SHOW_DIR"
         ARGS+=" --show-dir $SHOW_DIR"
     fi
     python -m test $CONFIG \

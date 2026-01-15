@@ -1,5 +1,7 @@
 """This config is only for tracking inference.
 For detector training, please use the appropriate config for the detector."""
+from configs._base_.paths import RESULTS_ROOT
+
 _base_ = [
     '../_base_/models/prob_yolox_x.py',
     '../_base_/datasets/mot_challenge.py', '../_base_/default_runtime.py'
@@ -25,8 +27,7 @@ model = dict(
         test_cfg=dict(score_thr=0.01, nms=dict(type='nms', iou_threshold=0.7)),
         init_cfg=dict(
             type='Pretrained',
-            checkpoint=  # noqa: E251
-            f"/home/results/{weights_path}/latest.pth"  # noqa: E501
+            checkpoint=str(RESULTS_ROOT / weights_path / 'latest.pth')  # noqa: E501
         )
     ),
     motion=dict(type='KalmanFilter'),

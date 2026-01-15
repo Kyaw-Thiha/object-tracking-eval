@@ -1,5 +1,10 @@
 import sys
-sys.path.append("/home/allynbao/project/object_detection_yolox")
+from pathlib import Path
+
+SRC_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = SRC_ROOT.parent
+YOLOX_ROOT = REPO_ROOT / "object_detection_yolox"
+sys.path.append(str(YOLOX_ROOT))
 from yolox import YoloX
 
 import cv2 as cv
@@ -74,7 +79,7 @@ class YOLOXNoiseModelWrapper(torch.nn.Module):
             print("correct cov matrices shape: ", torch.eye(4, device=self.device).unsqueeze(0).repeat(det_bboxes.shape[0], 1, 1).shape)
 
             # --- ChatGPT fix: numpy.linalg.LinAlgError: 1-th leading minor of the array is not positive definite "ensure covariance matrices are SPD before returning" ---
-            # error occurs in /home/allynbao/anaconda3/envs/mot_env/lib/python3.10/site-packages/scipy/linalg/decomp_cholesky.py
+            # error originates inside scipy.linalg.decomp_cholesky when covariances are not SPD
             sanitized_covs = []
             for cov in bbox_covs:
                 # symmetrize to avoid tiny asymmetries
@@ -208,8 +213,7 @@ class YOLOXNoiseModelWrapper(torch.nn.Module):
         
 
 def factory(device):
-
-    model_checkpoint_path = "/home/allynbao/project/object_detection_yolox/object_detection_yolox_2022nov.onnx"
+    model_checkpoint_path = YOLOX_ROOT / "object_detection_yolox_2022nov.onnx"
 
     # Check OpenCV version
     opencv_python_version = lambda str_version: tuple(map(int, (str_version.split("."))))
@@ -245,7 +249,7 @@ def factory(device):
            'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock',
            'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush')
 
-    model = YoloX(modelPath=model_checkpoint_path,
+    model = YoloX(modelPath=str(model_checkpoint_path),
                       confThreshold=0.5,
                       nmsThreshold=0.5,
                       objThreshold=0.5,

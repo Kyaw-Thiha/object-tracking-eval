@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from evaluation_metrics.utils import (
     read_annotations, 
     get_det_files_from_dir, 
@@ -8,6 +9,8 @@ from evaluation_metrics.utils import (
 
 import numpy as np
 import scipy
+
+SRC_ROOT = Path(__file__).resolve().parents[1]
 
 def compute_detA_single_frame(gt_boxes, det_boxes, iou_matrix, iou_threshold=0.5):
     """
@@ -96,10 +99,10 @@ def multi_video_detA(result_dir_path, det_dir_path) -> dict:
 
 
 if __name__ == "__main__":
+    PROJECT_ROOT = SRC_ROOT.parent
+    result_dir = PROJECT_ROOT / "outputs" / "test_pipeline_prob_yolox_x_uncertainty"
+    gt_dir = PROJECT_ROOT / "data" / "MOT17" / "train"
 
-    RESULT_DIR = "/home/allynbao/project/UncertaintyTrack/src/outputs/test_pipeline_prob_yolox_x_uncertainty"
-    GT_DIR = "/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train"
-
-    result = multi_video_detA(RESULT_DIR, GT_DIR)
+    result = multi_video_detA(str(result_dir), str(gt_dir))
 
     print("DetA CI over all videos:", result)

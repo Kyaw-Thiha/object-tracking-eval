@@ -1,9 +1,12 @@
 import os
 import sys
 import math
+from pathlib import Path
 import scipy.stats
 import numpy as np
 from PIL import Image
+
+SRC_ROOT = Path(__file__).resolve().parent
 
 
 LARGE_DIST = float("inf")
@@ -404,26 +407,37 @@ def get_conference_interval(data):
 
 if __name__ == "__main__":
     # if comparing with ground truth, make sure ground truth file is the second file. 
-    output_1_paths = ['/home/allynbao/project/UncertaintyTrack/src/outputs/testrun_mot17_half_train_uncertainty_tracker/MOT17-02-DPM.txt',
-                      '/home/allynbao/project/UncertaintyTrack/src/outputs/testrun_mot17_half_val_uncertainty_tracker/MOT17-02-DPM.txt']
+    PROJECT_ROOT = SRC_ROOT.parent
+    outputs_root = PROJECT_ROOT / "outputs"
+    data_root = PROJECT_ROOT / "data"
+
+    output_1_paths = [
+        str(outputs_root / "testrun_mot17_half_train_uncertainty_tracker" / "MOT17-02-DPM.txt"),
+        str(outputs_root / "testrun_mot17_half_val_uncertainty_tracker" / "MOT17-02-DPM.txt"),
+    ]
     
-    output_2_paths = ['/home/allynbao/project/UncertaintyTrack/src/outputs/testrun_mot17_half_train_probabilistic_byte_tracker/MOT17-02-DPM.txt',
-                      '/home/allynbao/project/UncertaintyTrack/src/outputs/testrun_mot17_half_val_probabilistic_byte_tracker/MOT17-02-DPM.txt'
+    output_2_paths = [
+        str(outputs_root / "testrun_mot17_half_train_probabilistic_byte_tracker" / "MOT17-02-DPM.txt"),
+        str(outputs_root / "testrun_mot17_half_val_probabilistic_byte_tracker" / "MOT17-02-DPM.txt"),
     ]
 
-    output_3_paths = ['/home/allynbao/project/UncertaintyTrack/src/outputs/testrun_image_noise_mot17_half_train_probabilistic_byte_tracker/MOT17-02-DPM.txt',
-                      '/home/allynbao/project/UncertaintyTrack/src/outputs/testrun_image_noise_mot17_half_val_probabilistic_byte_tracker/MOT17-02-DPM.txt']
+    output_3_paths = [
+        str(outputs_root / "testrun_image_noise_mot17_half_train_probabilistic_byte_tracker" / "MOT17-02-DPM.txt"),
+        str(outputs_root / "testrun_image_noise_mot17_half_val_probabilistic_byte_tracker" / "MOT17-02-DPM.txt"),
+    ]
     
-    # output_4_paths = ['/home/allynbao/project/UncertaintyTrack/src/outputs/test_pipeline_identity_uncertainty/MOT17-02-DPM.txt']
-    det_path = "/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train/MOT17-02-DPM/det/det.txt"
+    # output_4_paths = [str(outputs_root / "test_pipeline_identity_uncertainty" / "MOT17-02-DPM.txt")]
+    mot17_train = data_root / "MOT17" / "train" / "MOT17-02-DPM"
+    det_path = str(mot17_train / "det" / "det.txt")
 
-    gt_paths = ["/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train/MOT17-02-DPM/gt/gt_half-train.txt",
-                # "/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train/MOT17-02-DPM/gt/gt_half-val.txt"
-                ]
+    gt_paths = [
+        str(mot17_train / "gt" / "gt_half-train.txt"),
+        # str(mot17_train / "gt" / "gt_half-val.txt")
+    ]
     
-    example_image_path = "/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train/MOT17-02-DPM/img1/000001.jpg"
-    # det_plot_save_path = "/home/allynbao/project/UncertaintyTrack/src/outputs/MOT17-02-DPM_uncertaintytracker_diff_det"
-    det_plot_save_path = "/home/allynbao/project/UncertaintyTrack/src/outputs/MOT17-02-DPM_image_noise_prob_bytetracker_diff_det"
+    example_image_path = str(mot17_train / "img1" / "000001.jpg")
+    # det_plot_save_path = str(outputs_root / "MOT17-02-DPM_uncertaintytracker_diff_det")
+    det_plot_save_path = str(outputs_root / "MOT17-02-DPM_image_noise_prob_bytetracker_diff_det")
 
     # frame_ids, diff_per_timestamp = single_video_det_diff(output_1_paths, det_path, example_image_path)
     # gt_track_distance, gt_track_coverage, gt_track_apparance_rate = single_video_track_diff(output_4_paths, gt_paths, example_image_path, match_threshold=0.01)
@@ -431,11 +445,11 @@ if __name__ == "__main__":
     # print("GT Track Distance: ", gt_track_distance)
     # print("GT Track Coverage: ", gt_track_coverage)
     
-    # track_plot_save_path = "/home/allynbao/project/UncertaintyTrack/src/plots/debug/MOT17-02-DPM.png"
+    # track_plot_save_path = str(SRC_ROOT / "plots" / "debug" / "MOT17-02-DPM.png")
     # plot_diff(frame_ids, diff_per_timestamp, det_plot_save_path)
     # plot_track_diff(gt_track_distance, gt_track_coverage, gt_track_apparance_rate, track_plot_save_path)
 
-    dataset_dir = "/home/allynbao/project/UncertaintyTrack/src/data/MOT17/train"
-    output_dir = "/home/allynbao/project/UncertaintyTrack/src/outputs/test_pipeline_identity_uncertainty"
-    plot_save_path = "/home/allynbao/project/UncertaintyTrack/src/plots/debug/pipeline_test"
+    dataset_dir = str(data_root / "MOT17" / "train")
+    output_dir = str(outputs_root / "test_pipeline_identity_uncertainty")
+    plot_save_path = str(PROJECT_ROOT / "plots" / "debug" / "pipeline_test")
     print(multi_video_track_diff(dataset_dir, output_dir, example_image_path, plot_save_path))

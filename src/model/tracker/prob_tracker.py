@@ -25,7 +25,7 @@ class ProbabilisticTracker(ABC):
                  with_covariance=True,
                  primary_cascade=None,
                  secondary_fn=None,
-                 secondary_cascade=False,
+                 secondary_cascade=None,
                  **kwargs):
         """Initialize the tracker.
         Args:

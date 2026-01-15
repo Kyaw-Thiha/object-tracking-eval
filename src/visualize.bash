@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-DIR=$(dirname "$0")
-DIR=${DIR%/}
+DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$DIR/.." && pwd)"
+RESULTS_ROOT="${RESULTS_ROOT:-$PROJECT_ROOT/results}"
 CONFIG=
 DATASET=
 SKIP=false
@@ -60,7 +61,7 @@ done
 IFS='/' read -ra EXP <<< "$CONFIG"
 EXP=${EXP[-1]}
 EXP=${EXP%.*}
-EXP_DIR="/home/results/$EXP"
+EXP_DIR="$RESULTS_ROOT/$EXP"
 
 if [ ! -f "$DIR/$CONFIG" ]; then
     echo "Config file $CONFIG not found."
@@ -69,8 +70,8 @@ else
     echo "CONFIG... $CONFIG"
 fi
 
-RESULTS_FILE=$EXP_DIR/eval/results.pkl
-OUT_DIR=$EXP_DIR/show_errors
+RESULTS_FILE="$EXP_DIR/eval/results.pkl"
+OUT_DIR="$EXP_DIR/show_errors"
 
 ARGS="--result-file $RESULTS_FILE \
 --out-dir $OUT_DIR"
@@ -83,9 +84,10 @@ fi
 
 #? remove previous visualizations
 [ -d "$OUT_DIR" ] && echo "Removing previous visualizations..." && \
-rm -rf $OUT_DIR
+rm -rf "$OUT_DIR"
+mkdir -p "$OUT_DIR"
 
-cd $DIR
+cd "$DIR"
 if [ "$DATASET" = "MOT" ]; then
     echo "Visualizing MOT17/20 results..."
     python -m mot_visualize $CONFIG \
