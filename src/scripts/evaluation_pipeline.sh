@@ -11,7 +11,7 @@ MODEL_FACTORY="yolox_noise"
 # MODEL_FACTORY="prob_yolox"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SRC_ROOT="$SCRIPT_DIR"
+SRC_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROJECT_ROOT="$(cd "$SRC_ROOT/.." && pwd)"
 
 # Allow callers to override the default roots to avoid hard-coded absolute paths.
@@ -27,7 +27,7 @@ PLOT_SAVE_PATH="${PLOT_ROOT}/${DATASET}_${MODEL_FACTORY}_${TRACKER}"
 
 mkdir -p "$OUTPUT_DIR" "$EVAL_RESULT_DIR" "$PLOT_SAVE_PATH"
 
-python -X faulthandler evaluation_pipeline.py \
+python -X faulthandler "$SRC_ROOT/evaluation_pipeline.py" \
     --dataloader_factory "${DATASET}_factory.py" \
     --dataset_dir "$DATASET_DIR" \
     --model_factory "${MODEL_FACTORY}.py" \
