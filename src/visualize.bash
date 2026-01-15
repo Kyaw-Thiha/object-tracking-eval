@@ -90,11 +90,11 @@ mkdir -p "$OUT_DIR"
 cd "$DIR"
 if [ "$DATASET" = "MOT" ]; then
     echo "Visualizing MOT17/20 results..."
-    python -m mot_visualize $CONFIG \
+    python src/visualization/mot_visualize.py $CONFIG \
         $ARGS
 elif [ "$DATASET" = "BDD" ]; then
     echo "Visualizing BDD MOT results..."
-    python -m bdd_visualize $CONFIG \
+    python src/visualization/bdd_visualize.py $CONFIG \
         $ARGS
 else
     echo "Dataset not specified or not supported."
