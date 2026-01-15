@@ -115,7 +115,7 @@ else
         mkdir -p "$SHOW_DIR"
         ARGS+=" --show-dir $SHOW_DIR"
     fi
-    python src/entrypoints/test.py $CONFIG \
+    python -m test $CONFIG \
     $ARGS \
     --gpu-id 0
 fi

@@ -190,7 +190,7 @@ def factory(device: str):
         ProbYOLOXModelWrapper instance with .infer() and .get_classes()
     """
     # Paths based on your training command:
-    #   python src/entrypoints/train.py configs/yolox/prob_yolox_x_es_mot17-half.py
+    #   python train.py configs/yolox/prob_yolox_x_es_mot17-half.py
     # config_path = os.path.join(PROJECT_ROOT, "src", "configs", "yolox", "prob_yolox_x_es_mot17-half.py")
     # checkpoint_path = os.path.join(PROJECT_ROOT, "checkpoints", "prob_yolox_mot17", "epoch_69.pth")
 
