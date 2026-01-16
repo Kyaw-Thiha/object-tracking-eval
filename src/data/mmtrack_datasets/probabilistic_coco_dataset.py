@@ -15,7 +15,7 @@ from terminaltables import AsciiTable
 from mmdet.datasets.builder import DATASETS
 from mmdet.datasets.coco import CocoDataset
 
-from ..evaluation.prob_cocoeval import ProbCOCOeval
+from core.evaluation.prob_cocoeval import ProbCOCOeval
 
 
 @DATASETS.register_module()

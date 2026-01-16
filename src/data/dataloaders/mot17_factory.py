@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import ConcatDataset
 from pathlib import Path
 
-SRC_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = SRC_ROOT.parent
 
 
