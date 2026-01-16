@@ -1,13 +1,10 @@
-import os
 from pathlib import Path
 from typing import List, Tuple
 
-import numpy as np
 import torch
 import torch.nn as nn
 
-from mmcv import Config
-from mmdet.models import build_detector
+from .utils import get_bboxes_from_detector, load_detector_from_checkpoint
 
 SRC_ROOT = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = SRC_ROOT.parent
@@ -59,48 +56,7 @@ class ProbYOLOXModelWrapper(nn.Module):
         if imgs.device != self.device:
             imgs = imgs.to(self.device)
 
-        B, _, H, W = imgs.shape
-
-        # ---- 1. Forward backbone + neck ----
-        feats = self.detector.extract_feat(imgs)
-
-        # ---- 2. Forward head to get raw predictions ----
-        # ProbabilisticYOLOXHead2.forward returns:
-        #   cls_scores, cls_vars, bbox_preds, bbox_covs, objectnesses
-        cls_scores, cls_vars, bbox_preds, bbox_covs, objectnesses = \
-            self.detector.bbox_head(feats)
-
-        # ---- 3. Build dummy img_metas for each image ----
-        # We keep rescale=False here, so scale_factor is not used.
-        img_metas = []
-        for _ in range(B):
-            meta = dict(
-                img_shape=(H, W, 3),
-                ori_shape=(H, W, 3),
-                pad_shape=(H, W, 3),
-                scale_factor=np.array([1.0, 1.0, 1.0, 1.0], dtype=np.float32),
-                flip=False,
-                flip_direction=None,
-            )
-            img_metas.append(meta)
-
-        # ---- 4. Use the head's probabilistic get_bboxes() ----
-        # This is where mean + covariance are computed and NMS / fusion is done.
-        # get_bboxes() returns, per image:
-        #   (det_bboxes, det_bbox_covs, det_labels, det_score_vars)
-        results_list = self.detector.bbox_head.get_bboxes(
-            cls_scores=cls_scores,
-            cls_vars=cls_vars,
-            bbox_preds=bbox_preds,
-            bbox_covs=bbox_covs,
-            objectnesses=objectnesses,
-            img_metas=img_metas,
-            cfg=self.detector.bbox_head.test_cfg
-            if hasattr(self.detector.bbox_head, "test_cfg")
-            else getattr(self.detector, "test_cfg", None),
-            rescale=False,
-            with_nms=True,
-        )
+        results_list = get_bboxes_from_detector(self.detector, imgs)
 
         # ---- 5. Convert to the format your evaluation pipeline expects ----
         batch_bboxes: List[torch.Tensor] = []
@@ -124,61 +80,6 @@ class ProbYOLOXModelWrapper(nn.Module):
         return ("pedestrian",)
 
 
-def _load_detector_from_checkpoint(
-    config_path: str,
-    checkpoint_path: str,
-    device: str,
-) -> nn.Module:
-    """
-    Build the underlying detector from the mmdet-style config + your trained .pth.
-    """
-    cfg = Config.fromfile(config_path)
-
-    # In your config, the actual detector is under model.detector
-    detector_cfg = cfg.model.detector
-
-    # Build detector (SingleStageDetector / YOLOX-like)
-    detector = build_detector(detector_cfg)
-
-    # ---- Load weights ----
-    if not os.path.isfile(checkpoint_path):
-        raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
-
-    ckpt = torch.load(checkpoint_path, map_location="cpu")
-
-    if "state_dict" in ckpt:
-        state_dict = ckpt["state_dict"]
-    elif "model" in ckpt:
-        state_dict = ckpt["model"]
-    else:
-        state_dict = ckpt
-
-    # Some trainings save weights under prefixes like "detector." or "model."
-    new_state_dict = {}
-    for k, v in state_dict.items():
-        if k.startswith("detector."):
-            new_k = k[len("detector.") :]
-        elif k.startswith("model."):
-            new_k = k[len("model.") :]
-        else:
-            new_k = k
-        new_state_dict[new_k] = v
-
-    missing, unexpected = detector.load_state_dict(new_state_dict, strict=False)
-    if missing:
-        print("[ProbYOLOX factory] Warning: missing keys when loading state_dict:")
-        for k in missing:
-            print("   ", k)
-    if unexpected:
-        print("[ProbYOLOX factory] Warning: unexpected keys when loading state_dict:")
-        for k in unexpected:
-            print("   ", k)
-
-    detector.to(torch.device(device))
-    detector.eval()
-    return detector
-
-
 def factory(device: str):
     """
     Entry point used by your evaluation_pipeline.py:
@@ -198,7 +99,7 @@ def factory(device: str):
     checkpoint_path = PROJECT_ROOT / "checkpoints" / "prob_yolox_mot17" / "epoch_69.pth"
 
 
-    detector = _load_detector_from_checkpoint(
+    detector = load_detector_from_checkpoint(
         config_path=str(config_path),
         checkpoint_path=str(checkpoint_path),
         device=device,
