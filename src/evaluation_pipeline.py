@@ -56,17 +56,17 @@ def import_dataloader(factory_name: str):
 
 def import_model_factory(factory_name: str):
     """
-    Load a factory module from model_factory directory.
+    Load a factory module from model/factory directory.
 
     Example: factory_name="opencv_yolox_factory_image_noise"
     """
-    module_path = f"model_factory.{factory_name.replace('.py', '')}"
+    module_path = f"model.factory.{factory_name.replace('.py', '')}"
 
     try:
         module = importlib.import_module(module_path)
         return module.factory
     except ModuleNotFoundError:
-        raise ValueError(f"Factory '{factory_name}' not found in model_factory/")
+        raise ValueError(f"Factory '{factory_name}' not found in model.factory/")
     except AttributeError:
         raise ValueError(f"Factory '{factory_name}' does not define a 'factory' function")
 
@@ -143,7 +143,7 @@ def parse_args():
         "--dataloader_factory", required=True, help="dataloader factory file name under data/dataloaders directory.", type=str
     )
     parser.add_argument("--dataset_dir", required=True, help="directory path where the dataset is stored.", type=str)
-    parser.add_argument("--model_factory", required=True, help="modle factory file name under model_factory directory.", type=str)
+    parser.add_argument("--model_factory", required=True, help="model factory file name under model/factory directory.", type=str)
     parser.add_argument("--tracker", required=True, help="specify a tracker type", choices=allowed_trackers, type=str)
     parser.add_argument("--device", required=True, help="specific device type", choices=["cpu", "cuda"], type=str)
     parser.add_argument("--output_dir", required=True, help="directory path where tracking output will be stored", type=str)
@@ -180,7 +180,7 @@ def main(debug=False):
     else:
         print(f"[INFO] Starting tracking evaluation pipeline...")
         # --- Get model from factory ---
-        # from model_factory.opencv_yolox_factory import factory
+        # from model.factory.opencv_yolox_factory import factory
         factory = import_model_factory(args.model_factory)
 
         model = factory(device=device)

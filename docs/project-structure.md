@@ -32,9 +32,10 @@ object-tracking-eval/
 │   │   │   └── yolox/
 │   │   └── tracker/
 │   │       └── ...
-│   ├── model_factory/
-│   │   ├── prob_yolox.py
-│   │   └── ...
+│   ├── model/
+│   │   ├── factory/
+│   │   │   ├── prob_yolox.py
+│   │   │   └── ...
 │   ├── evaluation_pipeline.py
 │   ├── evaluation_pipeline.sh
 │   ├── plot_evaluation_results.py
@@ -51,7 +52,7 @@ object-tracking-eval/
 - `src/data/datasets/`: PyTorch dataset definitions that wrap the raw data.
 - `src/data/dataloaders/`: factories that instantiate datasets/data loaders so the pipeline can dynamically select datasets.
 - `src/data/mmtrack_datasets/`: MMDet/MMTrack-registered dataset classes used via configs.
-- `src/model_factory/`: detector factory modules (YOLOX variants) that expose `factory()` and `infer()` interfaces.
+- `src/model/factory/`: detector factory modules (YOLOX variants) that expose `factory()` and `infer()` interfaces.
 - `src/model/tracker/`: tracker implementations reused from UncertaintyTrack.
 - `src/evaluation_metrics/`: logic for DetA, AssA, HOTA, and evaluation orchestration.
 - `src/configs/`: detector/training configuration files (e.g., `prob_yolox_x_es_mot17-half.py`).
@@ -95,3 +96,11 @@ If you cloned this repo, then u will need to
 - `src/data/dataloaders/`: factory modules that build `DataLoader` instances for the evaluation pipeline. Each file exposes a `factory()` function that returns a ready-to-use loader.
 - `src/data/mmtrack_datasets/`: MMDet/MMTrack-registered datasets used by config-driven `train.py`/`test.py` flows. These classes extend MMDet/MMTrack base datasets and add covariance-aware formatting/evaluation.
 
+### Model
+`src/model/` contains detector/tracker implementations plus the manual-pipeline factories:
+- `src/model/factory/`: detector wrappers used by the evaluation pipeline; each module exposes `factory()` returning a model with `infer()` and `get_classes()`.
+- `src/model/tracker/`: custom trackers instantiated directly in `src/evaluation_pipeline.py`.
+- `src/model/det/`: MMDet-style detector implementations (e.g., YOLOX, RetinaNet variants) used when building models from configs.
+- `src/model/mot/`: MMTrack MOT model wrappers used in config-driven training/testing.
+- `src/model/losses/`: custom loss functions for probabilistic training.
+- `src/model/kalman_filter_uncertainty.py` / `src/model/kalman_filter_noise.py`: Kalman filter variants used by trackers.

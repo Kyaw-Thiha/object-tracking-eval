@@ -28,15 +28,15 @@ COCO-style datasets should be saved under the root `data/` directory. The pipeli
 
 To let the pipeline run arbitrary detector models (including different covariance-estimation approaches), a shared interface mirrors the data-loader factory pattern. Each detector must provide a factory script so the pipeline can initialize and query the model consistently.
 
-- Create a Python module under `src/model_factory/` that exposes a `factory()` function returning a subclass of `torch.nn.Module`.
+- Create a Python module under `src/model/factory/` that exposes a `factory()` function returning a subclass of `torch.nn.Module`.
 - The model object must implement:
   1. `infer(torch.Tensor) -> Tuple[List[torch.Tensor], List[torch.Tensor], List[torch.Tensor]]`, which receives a batch of image tensors shaped `(batch, 3, H, W)` and returns three lists (one per image) for bounding boxes, class labels, and covariance matrices. For an image with `N` detections: bounding boxes are shaped `(N, 5)` (`[x, y, width, height, confidence]`), labels are `(N,)`, and covariances are `(N, 4, 4)`.
   2. `get_classes() -> List[str]`, returning the class names used by the model.
 
 - Reference implementations (YOLOX-based, [Lee et al. 2024]):
-  - `model_factory/yolox_identity_covs.py`: deterministic covariance
-  - `model_factory/yolox_noise.py`: test-time augmentation
-  - `model_factory/prob_yolox.py`: probabilistic covariance
+  - `model/factory/yolox_identity_covs.py`: deterministic covariance
+  - `model/factory/yolox_noise.py`: test-time augmentation
+  - `model/factory/prob_yolox.py`: probabilistic covariance
 
 ## Probabilistic YOLOX
 

@@ -10,7 +10,7 @@ import math
 from mmcv import Config
 from mmdet.models import build_detector
 
-SRC_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = SRC_ROOT.parent
 
 from scipy.optimize import linear_sum_assignment

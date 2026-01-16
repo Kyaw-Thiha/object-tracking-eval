@@ -82,8 +82,8 @@ def parse_args():
 def main(debug=False):
 
     # --- Get model from factory ---
-    # from model_factory.opencv_yolox_factory import factory
-    from model_factory.opencv_yolox_factory_image_noise import factory
+    # from model.factory.opencv_yolox_factory import factory
+    from model.factory.opencv_yolox_factory_image_noise import factory
 
     model = factory(device=device)
     assert hasattr(model, "get_classes"), "ASSERT ERROR: The model class must have method: get_classes() -> list[str]"

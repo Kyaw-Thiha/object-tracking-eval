@@ -9,11 +9,11 @@ import torch.nn as nn
 from mmcv import Config
 from mmdet.models import build_detector
 
-SRC_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = SRC_ROOT.parent
 
 
-class IdentityCovYOLOXModelWrapper(nn.Module):
+class ProbYOLOXModelWrapper(nn.Module):
 
     def __init__(self, detector: nn.Module, classes: list, device: str):
         super().__init__()
@@ -77,20 +77,11 @@ class IdentityCovYOLOXModelWrapper(nn.Module):
         batch_labels: List[torch.Tensor] = []
         batch_covs:   List[torch.Tensor] = []
 
-        # Fixed Identity Covariance matrix
-        # eye_covs = torch.eye(4, device=imgs.device).unsqueeze(0)
-
-        
-
         for (det_bboxes, det_bbox_covs, det_labels, _det_score_vars) in results_list:
 
             batch_bboxes.append(det_bboxes)
             batch_labels.append(det_labels.to(torch.long))
-            
-            # create identity covariance matrices
-            identity_covs = torch.eye(4, device=imgs.device).unsqueeze(0).repeat(det_bbox_covs.shape[0], 1, 1)
-
-            batch_covs.append(identity_covs)
+            batch_covs.append(det_bbox_covs)
 
         return batch_bboxes, batch_labels, batch_covs
 
@@ -158,6 +149,5 @@ def factory(device: str):
     # --- COCO style dataset classes ---
     class_names = ('person', 'bicycle', 'car', 'horse')
 
-    model = IdentityCovYOLOXModelWrapper(detector=detector, classes=class_names, device=device)
-
+    model = ProbYOLOXModelWrapper(detector=detector, classes=class_names, device=device)
     return model

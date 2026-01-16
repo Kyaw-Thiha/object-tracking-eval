@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-SRC_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = SRC_ROOT.parent
 YOLOX_ROOT = REPO_ROOT / "object_detection_yolox"
 sys.path.append(str(YOLOX_ROOT))
