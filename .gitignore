@@ -22,7 +22,6 @@ src/outputs/**/*.txt
 Thumbs.db
 
 # ignore dataset
-src/data/
 
 # ignore output videos
 src/annotated_videos/
@@ -31,7 +30,7 @@ src/annotated_videos/
 *.pth
 
 # Artifact folders
-data/
+/data/
 checkpoints/
 results/
 outputs/

@@ -9,7 +9,7 @@ from model.tracker.uncertainty_tracker import UncertaintyTracker
 from model.tracker.prob_byte_tracker import ProbabilisticByteTracker
 from model.kalman_filter_uncertainty import KalmanFilterWithUncertainty
 
-from datasets.mot17_dataset import MOT17CocoDataset
+from data.datasets.mot17_dataset import MOT17CocoDataset
 from torch.utils.data import DataLoader
 
 import argparse
@@ -82,8 +82,8 @@ def parse_args():
 def main(debug=False):
 
     # --- Get model from factory ---
-    # from model_factory.opencv_yolox_factory import factory
-    from model_factory.opencv_yolox_factory_image_noise import factory
+    # from model.factory.opencv_yolox_factory import factory
+    from model.factory.opencv_yolox_factory_image_noise import factory
 
     model = factory(device=device)
     assert hasattr(model, "get_classes"), "ASSERT ERROR: The model class must have method: get_classes() -> list[str]"

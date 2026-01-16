@@ -5,5 +5,5 @@ from .hooks import *
 from .utils import *
 from .visualization import *
 from .inference import *
-from .datasets import *
+from data.mmtrack_datasets import *
 from .conversion import *

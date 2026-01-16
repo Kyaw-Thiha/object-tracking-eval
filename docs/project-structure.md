@@ -14,10 +14,13 @@ object-tracking-eval/
 │   │   └── ...
 │   ├── core/
 │   │   └── ...
-│   ├── dataloader_factory/
-│   │   └── ...
-│   ├── datasets/
-│   │   └── ...
+│   ├── data/
+│   │   ├── dataloaders/
+│   │   │   └── ...
+│   │   ├── datasets/
+│   │   │   └── ...
+│   │   └── mmtrack_datasets/
+│   │       └── ...
 │   ├── evaluation_metrics/
 │   │   ├── AssA.py
 │   │   ├── detA.py
@@ -29,9 +32,10 @@ object-tracking-eval/
 │   │   │   └── yolox/
 │   │   └── tracker/
 │   │       └── ...
-│   ├── model_factory/
-│   │   ├── prob_yolox.py
-│   │   └── ...
+│   ├── model/
+│   │   ├── factory/
+│   │   │   ├── prob_yolox.py
+│   │   │   └── ...
 │   ├── evaluation_pipeline.py
 │   ├── evaluation_pipeline.sh
 │   ├── plot_evaluation_results.py
@@ -45,14 +49,16 @@ object-tracking-eval/
 - `src/evaluation_pipeline.py`: main multi-object tracking evaluation driver (arg parsing, dynamic loading, inference, metrics).
 - `src/evaluation_pipeline.sh`: convenience script that wraps the Python pipeline invocation.
 - `data/`: COCO-style dataset files (e.g., CAMEL, MOT17).
-- `src/datasets/`: PyTorch dataset definitions that wrap the raw data.
-- `src/dataloader_factory/`: factories that instantiate datasets/data loaders so the pipeline can dynamically select datasets.
-- `src/model_factory/`: detector factory modules (YOLOX variants) that expose `factory()` and `infer()` interfaces.
+- `src/data/datasets/`: PyTorch dataset definitions that wrap the raw data.
+- `src/data/dataloaders/`: factories that instantiate datasets/data loaders so the pipeline can dynamically select datasets.
+- `src/data/mmtrack_datasets/`: MMDet/MMTrack-registered dataset classes used via configs.
+- `src/model/factory/`: detector factory modules (YOLOX variants) that expose `factory()` and `infer()` interfaces.
 - `src/model/tracker/`: tracker implementations reused from UncertaintyTrack.
 - `src/evaluation_metrics/`: logic for DetA, AssA, HOTA, and evaluation orchestration.
 - `src/configs/`: detector/training configuration files (e.g., `prob_yolox_x_es_mot17-half.py`).
 - `src/plot_evaluation_results.py`: helper for plotting comparative evaluation bar charts.
 - `docker/`: container scripts/assets for reproducible environments (usually untouched unless rebuilding images).
+
 
 ## Artifact Folders
 The following are artifact folders that are not version-controlled.
@@ -70,3 +76,31 @@ If you cloned this repo, then u will need to
 1. Manually create the `data` folder, and download the dataset as `data/<dataset_name>/`
 2. Manually create the `checkpoints` folder and download the checkpoints as `checkpoints/<name>.pth`
 3. (Optional) Pre-create the `results`, `outputs`, `evaluation_results` and `plots` folders.
+
+## Features
+### Visualization
+`src/core/visualization/*` are reusable visualization codes used by inference, models and src/visualization.
+- `src/core/visualization/__init__.py`: re-exports visualization API (`get_ellipse_params`, `imshow_det_bboxes`, `imshow_mot_errors`, `show_track_result`) for `core.visualization` imports.
+- `src/core/visualization/image.py`: `imshow_det_bboxes` helper for detection visualization with optional covariance ellipses; used by detector models (e.g. `src/model/det/bayesod/probabilistic_retinanet.py`, `src/model/det/yolox/probabilistic_yolox.py`).
+- `src/core/visualization/mot.py`: tracking/error visualization (`imshow_mot_errors`, `imshow_tracks`, `show_track_result`); used by inference (`src/core/inference/inference.py`) and CLI scripts.
+- `src/core/visualization/utils.py`: `get_ellipse_params` math helper used across datasets (`src/data/mmtrack_datasets/prob_coco_video_dataset.py`, `src/data/mmtrack_datasets/prob_mot_challenge_dataset.py`), trackers (`src/model/tracker/prob_tracker.py`), and visualization helpers.
+
+`src/visualization/*` is the visualization package that involves CLI entrypoints to visualize data & results.
+- `src/visualization/bdd_visualize.py`: CLI script to visualize tracking errors for BDD-style datasets; loads config and inference `.pkl`, builds dataset via `mmtrack`, computes MOT error events, and calls `imshow_mot_errors` from `src/core/visualization/mot.py` to draw FP/FN/IDSW overlays and optional ellipses.
+- `src/visualization/mot_visualize.py`: CLI script to visualize tracking errors for MOTChallenge-style datasets; compares results vs GT with `motmetrics` and uses `imshow_mot_errors` from `src/core/visualization/mot.py` to render error overlays and output frames/video.
+- `src/visualization/concat_videos_for_visualization.py`: standalone utility to concatenate two videos side-by-side with OpenCV.
+
+### Data
+`src/data/` groups all dataset-related code into three top-level buckets:
+- `src/data/datasets/`: “manual” PyTorch datasets used by the custom evaluation pipeline (e.g., CAMEL/MOT17 COCO-style loaders). Each file defines a `torch.utils.data.Dataset` with similar structure.
+- `src/data/dataloaders/`: factory modules that build `DataLoader` instances for the evaluation pipeline. Each file exposes a `factory()` function that returns a ready-to-use loader.
+- `src/data/mmtrack_datasets/`: MMDet/MMTrack-registered datasets used by config-driven `train.py`/`test.py` flows. These classes extend MMDet/MMTrack base datasets and add covariance-aware formatting/evaluation.
+
+### Model
+`src/model/` contains detector/tracker implementations plus the manual-pipeline factories:
+- `src/model/factory/`: detector wrappers used by the evaluation pipeline; each module exposes `factory()` returning a model with `infer()` and `get_classes()`.
+- `src/model/tracker/`: custom trackers instantiated directly in `src/evaluation_pipeline.py`.
+- `src/model/det/`: MMDet-style detector implementations (e.g., YOLOX, RetinaNet variants) used when building models from configs.
+- `src/model/mot/`: MMTrack MOT model wrappers used in config-driven training/testing.
+- `src/model/losses/`: custom loss functions for probabilistic training.
+- `src/model/kalman_filter_uncertainty.py` / `src/model/kalman_filter_noise.py`: Kalman filter variants used by trackers.
