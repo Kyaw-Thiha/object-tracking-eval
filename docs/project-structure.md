@@ -54,6 +54,7 @@ object-tracking-eval/
 - `src/plot_evaluation_results.py`: helper for plotting comparative evaluation bar charts.
 - `docker/`: container scripts/assets for reproducible environments (usually untouched unless rebuilding images).
 
+
 ## Artifact Folders
 The following are artifact folders that are not version-controlled.
 All these folders are expected to be in the root of the project.
@@ -70,3 +71,19 @@ If you cloned this repo, then u will need to
 1. Manually create the `data` folder, and download the dataset as `data/<dataset_name>/`
 2. Manually create the `checkpoints` folder and download the checkpoints as `checkpoints/<name>.pth`
 3. (Optional) Pre-create the `results`, `outputs`, `evaluation_results` and `plots` folders.
+
+## Features
+### Visualization
+`src/core/visualization/*` are reusable visualization codes used by inference, models and src/visualization.
+- `src/core/visualization/__init__.py`: re-exports visualization API (`get_ellipse_params`, `imshow_det_bboxes`, `imshow_mot_errors`, `show_track_result`) for `core.visualization` imports.
+- `src/core/visualization/image.py`: `imshow_det_bboxes` helper for detection visualization with optional covariance ellipses; used by detector models (e.g. `src/model/det/bayesod/probabilistic_retinanet.py`, `src/model/det/yolox/probabilistic_yolox.py`).
+- `src/core/visualization/mot.py`: tracking/error visualization (`imshow_mot_errors`, `imshow_tracks`, `show_track_result`); used by inference (`src/core/inference/inference.py`) and CLI scripts.
+- `src/core/visualization/utils.py`: `get_ellipse_params` math helper used across datasets (`src/core/datasets/prob_coco_video_dataset.py`, `src/core/datasets/prob_mot_challenge_dataset.py`), trackers (`src/model/tracker/prob_tracker.py`), and visualization helpers.
+
+`src/visualization/*` is the visualization package that involves CLI entrypoints to visualize data & results.
+- `src/visualization/bdd_visualize.py`: CLI script to visualize tracking errors for BDD-style datasets; loads config and inference `.pkl`, builds dataset via `mmtrack`, computes MOT error events, and calls `imshow_mot_errors` from `src/core/visualization/mot.py` to draw FP/FN/IDSW overlays and optional ellipses.
+- `src/visualization/mot_visualize.py`: CLI script to visualize tracking errors for MOTChallenge-style datasets; compares results vs GT with `motmetrics` and uses `imshow_mot_errors` from `src/core/visualization/mot.py` to render error overlays and output frames/video.
+- `src/visualization/concat_videos_for_visualization.py`: standalone utility to concatenate two videos side-by-side with OpenCV.
+
+
+
