@@ -1,4 +1,4 @@
-from datasets.camel_dataset import CAMELCocoDataset
+from data.datasets.camel_dataset import CAMELCocoDataset
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.data import ConcatDataset

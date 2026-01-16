@@ -21,8 +21,8 @@ The pipeline script lives at `src/evaluation_pipeline.py`, and the accompanying 
 
 COCO-style datasets should be saved under the root `data/` directory. The pipeline uses PyTorch datasets and data loaders, so two Python scripts are required: one to define the dataset and another to build the loader. When a new dataset already follows the COCO-style format, the existing CAMEL or MOT17 implementations can be adapted with minimal changes.
 
-1. **Dataset class**: a script under `src/datasets/` defining a subclass of `torch.utils.data.Dataset` that implements `__init__()`, `__len__()`, and `__getitem__()`. Use the provided CAMEL and MOT17 dataset classes (both COCO-style) as references for new datasets.
-2. **Data-loader factory**: a script under `src/dataloader_factory/` exposing `factory()` functions that instantiate the dataset class and return a `torch.utils.data.DataLoader`. Use the provided CAMEL and MOT17 factories as references for new dataloader.
+1. **Dataset class**: a script under `src/data/datasets/` defining a subclass of `torch.utils.data.Dataset` that implements `__init__()`, `__len__()`, and `__getitem__()`. Use the provided CAMEL and MOT17 dataset classes (both COCO-style) as references for new datasets.
+2. **Data-loader factory**: a script under `src/data/dataloaders/` exposing `factory()` functions that instantiate the dataset class and return a `torch.utils.data.DataLoader`. Use the provided CAMEL and MOT17 factories as references for new dataloader.
 
 ## Detector Model Factory
 
@@ -53,4 +53,3 @@ Metric computation lives in `src/evaluation_metrics/evaluate.py`, which consumes
 ## Plotting Results
 
 `src/plot_evaluation_results.py` generates comparative bar charts for a curated set of evaluation outputs. These plotting scripts are narrow in scope, so new experiments typically require authoring task-specific plotting utilities.
-

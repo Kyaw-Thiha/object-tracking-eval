@@ -9,7 +9,7 @@ from model.tracker.uncertainty_tracker import UncertaintyTracker
 from model.tracker.prob_byte_tracker import ProbabilisticByteTracker
 from model.kalman_filter_uncertainty import KalmanFilterWithUncertainty
 
-from datasets.mot17_dataset import MOT17CocoDataset
+from data.datasets.mot17_dataset import MOT17CocoDataset
 from torch.utils.data import DataLoader
 
 import argparse

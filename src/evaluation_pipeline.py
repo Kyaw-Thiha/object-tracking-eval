@@ -20,7 +20,7 @@ from model.kalman_filter_uncertainty import KalmanFilterWithUncertainty
 
 from core.utils import results2outs, outs2results
 
-from datasets.mot17_dataset import MOT17CocoDataset
+from data.datasets.mot17_dataset import MOT17CocoDataset
 from torch.utils.data import DataLoader
 
 import argparse
@@ -41,7 +41,7 @@ if str(SRC_DIR) not in sys.path:
 
 
 def import_dataloader(factory_name: str):
-    module_path = f"dataloader_factory.{factory_name}"
+    module_path = f"data.dataloaders.{factory_name}"
 
     try:
         module = importlib.import_module(module_path.replace(".py", ""))
@@ -49,7 +49,7 @@ def import_dataloader(factory_name: str):
         # TODO: checks to varify dataloader is indeed a torch dataloader
         return dataloader
     except ModuleNotFoundError:
-        raise ValueError(f"Factory '{factory_name}' not found in dataloader_factory/")
+        raise ValueError(f"Factory '{factory_name}' not found in data.dataloaders/")
     except AttributeError:
         raise ValueError(f"Factory '{factory_name}' does not define a 'factory' function")
 
@@ -140,7 +140,7 @@ class MOTDetector(torch.nn.Module):
 def parse_args():
     parser = argparse.ArgumentParser(description="evaluation pipeline")
     parser.add_argument(
-        "--dataloader_factory", required=True, help="dataloader factory file name under dataloader_factory directory.", type=str
+        "--dataloader_factory", required=True, help="dataloader factory file name under data/dataloaders directory.", type=str
     )
     parser.add_argument("--dataset_dir", required=True, help="directory path where the dataset is stored.", type=str)
     parser.add_argument("--model_factory", required=True, help="modle factory file name under model_factory directory.", type=str)
