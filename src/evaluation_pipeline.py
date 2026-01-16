@@ -20,7 +20,6 @@ from model.kalman_filter_uncertainty import KalmanFilterWithUncertainty
 
 from core.utils import results2outs, outs2results
 
-from data.datasets.mot17_dataset import MOT17CocoDataset
 from torch.utils.data import DataLoader
 
 import argparse

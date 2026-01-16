@@ -35,7 +35,6 @@ class ProbabilisticCocoVideoDataset(CocoVideoDataset):
             the videos, tmp_dir is the temporal directory created for saving
             files.
         """
-        breakpoint()
         assert isinstance(results, dict), 'results must be a dict.'
         if resfile_path is None:
             tmp_dir = tempfile.TemporaryDirectory()
