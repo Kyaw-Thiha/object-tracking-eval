@@ -18,6 +18,7 @@ class OverlayMeta:
       timestamp=1678901234.5
       sensor_id="cam_front"
     """
+
     coord_frame: str  # "sensor:cam_front", "ego", "world", "bev", etc.
     source: str  # "gt", "pred:<run_id>", "detector:<name>", etc.
     timestamp: Optional[float]  # if overlay is time-specific
@@ -190,3 +191,33 @@ class Track:
     class_id: Optional[int]
     states: List[TrackState]
     confidence: Optional[float]
+
+
+@dataclass()
+class OverlaySet:
+    """
+    Container for all overlay annotations associated with a frame.
+    - keys are run ids or "gt" to support multiple sources
+    - values are lists or tensors for that annotation type
+
+    Example:
+      boxes3D={"gt": [Box3D(...)]}
+      boxes2D={"pred:run1": [Box2D(...)]}
+      oriented_boxes2d={}
+      radar_dets={"gt": RadarPointDetections(...)}
+      radar_polar_dets={}
+      tracks={"gt": [Track(...)]}
+    """
+
+    boxes3D: dict[str, list[Box3D]]
+    boxes2D: dict[str, list[Box2D]]
+    oriented_boxes2d: dict[str, list[OrientedBox2D]]
+    radar_dets: dict[str, RadarPointDetections]
+    radar_polar_dets: dict[str, RadarPolarDetections]
+    tracks: dict[str, list[Track]]
+
+    # seg_masks: dict[str, SegmentationMask]
+    # bev_grids: dict[str, BEVGrid]
+    # bev_grids: dict[str, BEVGrid]
+    # projected_points: dict[str, ProjectedPoints2D]
+    # polylines: dict[str, list[Polyline]]
