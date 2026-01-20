@@ -12,6 +12,7 @@ from typing import Optional, Union
 
 from .radar import RadarSensorFrame
 from .image import ImageSensorFrame
+from .lidar import LidarSensorFrame
 from .overlay import OverlaySet
 
 
@@ -47,7 +48,7 @@ class SensorFrame:
     - data: modality-specific sensor frame data
     """
     kind: str
-    data: Union[RadarSensorFrame, ImageSensorFrame]
+    data: Union[RadarSensorFrame, ImageSensorFrame, LidarSensorFrame]
 
 
 @dataclass()
