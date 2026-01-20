@@ -1,3 +1,13 @@
+"""
+Overlay schema definitions.
+
+Order of contents:
+- OverlayMeta
+- Overlay objects: Box3D, Box2D, OrientedBox2D, RadarPointDetections,
+  RadarPolarDetections, TrackState, Track
+- OverlaySet ties the above objects together per frame
+"""
+
 from dataclasses import dataclass
 from typing import List, Optional
 import numpy as np
