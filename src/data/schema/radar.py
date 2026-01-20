@@ -13,8 +13,8 @@ class GridRadar:
     tensor: np.ndarray  # 2D or 3D
     axes: tuple[str, ...]  # ("range","azimuth") / ("range","doppler") / ("range","azimuth","doppler")
     bins: dict[str, np.ndarray]  # bin centers for each axis
-    units: dict[str, str]  # meters, radians, m/s
-    layouts: str  # explicit ordering to avoid bugs
+    units: dict[str, str]  # range: meters, azimuth: radians, doppler: m/s
+    layouts: str  # "R,A,D" or "R,A" or "R,D": explicit ordering to avoid bugs
 
 
 @dataclass()
