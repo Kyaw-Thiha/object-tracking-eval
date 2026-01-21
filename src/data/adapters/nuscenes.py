@@ -222,5 +222,4 @@ if __name__ == "__main__":
             first_frame = False
 
         print(frame.frame_id)
-
     print("")
