@@ -10,9 +10,9 @@ from .base import BaseProducer
 
 
 class CamelEvaluationProducer(BaseProducer):
-    def __init__(self, adapter, input_size: tuple[int, int] = (336, 256)) -> None:
+    def __init__(self, adapter, input_size: tuple[int, int] = (640, 640)) -> None:
         super().__init__(adapter)
-        self.input_size = input_size  # (W, H) or (H, W) depending on your letterbox
+        self.input_size = input_size  # (H, W) to match CAMELCocoDataset letterbox
 
     def get_sensors(self, frame: Frame) -> dict[str, Any]:
         # Single-camera input for CAMEL
@@ -24,7 +24,9 @@ class CamelEvaluationProducer(BaseProducer):
 
     def preprocess(self, sensors: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         img = sensors["cam"]
-        img_resized, scale, pad_shape = self.letterbox(img, self.input_size, size_divisor=32)
+        if img is not None:
+            img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+        img_resized, scale, pad_shape = self.letterbox(img, self.input_size)
         img_tensor = torch.from_numpy(img_resized).permute(2, 0, 1).float()
         return {"cam": img_tensor}, {"scale_factor": scale, "ori_shape": img.shape, "pad_shape": pad_shape}
 
@@ -58,19 +60,16 @@ class CamelEvaluationProducer(BaseProducer):
         }
         return target
 
-    def letterbox(self, img: np.ndarray, target_size: tuple[int, int], size_divisor: int) -> tuple[np.ndarray, float, tuple[int, int, int]]:
-        target_w, target_h = target_size
+    def letterbox(self, img: np.ndarray, target_size: tuple[int, int]) -> tuple[np.ndarray, float, tuple[int, int, int]]:
+        target_h, target_w = target_size
 
-        # Resizing
+        # Resizing (match CAMELCocoDataset behavior)
         ratio = min(target_h / img.shape[0], target_w / img.shape[1])
         resized_w = int(img.shape[1] * ratio)
         resized_h = int(img.shape[0] * ratio)
         resized = cv.resize(img, (resized_w, resized_h), interpolation=cv.INTER_LINEAR).astype(np.float32)
 
-        # Padding to ensure divisibility
-        pad_w = int(np.ceil(resized_w / size_divisor) * size_divisor)
-        pad_h = int(np.ceil(resized_h / size_divisor) * size_divisor)
-        padded = np.ones((pad_h, pad_w, 3), dtype=np.float32) * 114.0
-
+        # Fixed-size padding to target
+        padded = np.ones((target_h, target_w, 3), dtype=np.float32) * 114.0
         padded[: resized.shape[0], : resized.shape[1]] = resized
-        return padded, ratio, (pad_h, pad_w, 3)
+        return padded, ratio, (target_h, target_w, 3)

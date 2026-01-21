@@ -26,6 +26,13 @@ class CamelAdapter(CocoBaseAdapter):
             return float(self.get_frame_id(img))
         return float(mot_frame_id)
 
+    def get_frame_id(self, img: Any) -> int:
+        img = cast(dict[str, Any], img)
+        mot_frame_id = img.get("mot_frame_id")
+        if mot_frame_id is not None:
+            return int(mot_frame_id)
+        return super().get_frame_id(img)
+
     def get_image_path(self, img: Any):
         img = cast(dict[str, Any], img)
         file_name = img["file_name"]

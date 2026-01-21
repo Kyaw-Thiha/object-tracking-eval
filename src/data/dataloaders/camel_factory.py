@@ -11,7 +11,7 @@ SRC_ROOT = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = SRC_ROOT.parent
 
 
-def factory(batch_size=2, num_workers=0, input_size=(336, 256)):
+def factory(batch_size=2, num_workers=0, input_size=(640, 640)):
     dataset_path = PROJECT_ROOT / "data" / "camel_dataset"
     adapter = CamelAdapter(dataset_path=str(dataset_path), ann_file="annotations/test_cocoformat_half.json", split="test_half")
     dataset = CamelEvaluationProducer(adapter, input_size=input_size)
