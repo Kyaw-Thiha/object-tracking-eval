@@ -1,4 +1,5 @@
-from typing import Any
+from typing import Any, cast
+from pathlib import Path
 from .coco import CocoBaseAdapter
 
 
@@ -24,6 +25,13 @@ class CamelAdapter(CocoBaseAdapter):
         if mot_frame_id is None:
             return float(self.get_frame_id(img))
         return float(mot_frame_id)
+
+    def get_image_path(self, img: Any):
+        img = cast(dict[str, Any], img)
+        file_name = img["file_name"]
+        if file_name.startswith(("train/", "test/")):
+            return Path(self.dataset_path) / file_name
+        return Path(self.dataset_path) / self.split / file_name
 
 
 # Testing the Adapter to see if everything looks good
