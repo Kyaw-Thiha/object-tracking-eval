@@ -54,6 +54,15 @@ class NuScenesAdapter(BaseAdapter):
             next_id += 1
         return instance_map
 
+    # Getters
+    def get_sequence_ids(self) -> list[str]:
+        """Return available sequence ids (scene names)."""
+        return [scene["name"] for scene in self.nusc.scene]
+
+    def get_sensor_ids(self) -> list[str]:
+        """Return available sensor channel names."""
+        return [sensor["channel"] for sensor in self.nusc.sensor]
+
     # Helpers
     def index_frames(self) -> list[dict]:
         """Build and return a list of per-frame metadata dicts used by __getitem__."""
