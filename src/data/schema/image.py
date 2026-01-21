@@ -10,8 +10,8 @@ class ImageMeta:
     - spectral: "rgb" / "ir" / "uv"
     - frame: coordinate frame name (e.g., "sensor:cam_front")
     - intrinsics: (3, 3) camera matrix
-    - distortion: 1D coeffs (k1,k2,p1,p2,k3,...) or None
     - sensor_pose_in_ego: (4, 4) SE(3) transform, sensor -> ego
+    - distortion: 1D coeffs (k1,k2,p1,p2,k3,...) or None
     - exposure: exposure time in ms, if available
     - gain: sensor gain, if available
 
@@ -28,10 +28,10 @@ class ImageMeta:
     spectral: str
     frame: str
     intrinsics: np.ndarray  # (3x3 camera matrix, float32)
-    distortion: Optional[np.ndarray]  # (1D coeffs like k1,k2,p1,p2,k3,...)
     sensor_pose_in_ego: np.ndarray  # (4x4 SE(3) transform)
-    exposure: Optional[float]
-    gain: Optional[float]
+    # distortion: Optional[np.ndarray]  # (1D coeffs like k1,k2,p1,p2,k3,...)
+    # exposure: Optional[float]
+    # gain: Optional[float]
 
 
 @dataclass()
@@ -50,5 +50,5 @@ class ImageSensorFrame:
 
     sensor_id: str
     image: np.ndarray  # HxW or HxWxC
-    mask: Optional[np.ndarray]  # optional validity mask
     meta: ImageMeta  # intrinsics + poses + encoding details
+    mask: Optional[np.ndarray] = None  # optional validity mask

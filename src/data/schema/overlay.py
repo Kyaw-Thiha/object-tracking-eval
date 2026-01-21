@@ -31,8 +31,8 @@ class OverlayMeta:
 
     coord_frame: str  # "sensor:cam_front", "ego", "world", "bev", etc.
     source: str  # "gt", "pred:<run_id>", "detector:<name>", etc.
-    timestamp: Optional[float]  # if overlay is time-specific
-    sensor_id: Optional[str]  # if labels tied to a specific sensor
+    timestamp: Optional[float] = None  # if overlay is time-specific
+    sensor_id: Optional[str] = None  # if labels tied to a specific sensor
 
 
 @dataclass()
@@ -60,9 +60,9 @@ class Box3D:
     size_lwh: np.ndarray  # (3,) float32  (length, width, height)
     yaw: float  # radians (rotation around +z in coord_frame)
     class_id: int
-    confidence: Optional[float]
-    track_id: Optional[int]
-    velocity_xyz: Optional[np.ndarray]
+    confidence: Optional[float] = None
+    track_id: Optional[int] = None
+    velocity_xyz: Optional[np.ndarray] = None
 
 
 @dataclass()
@@ -83,8 +83,8 @@ class Box2D:
     meta: OverlayMeta
     xyxy: np.ndarray  # (4,) float32: x1,y1,x2,y2 in pixels or grid coords
     class_id: int
-    confidence: Optional[float]
-    track_id: Optional[int]
+    confidence: Optional[float] = None
+    track_id: Optional[int] = None
 
 
 @dataclass()
@@ -111,8 +111,8 @@ class OrientedBox2D:
     size_lwh: np.ndarray  # (3,) float32  (length, width, height)
     yaw: float  # radians (rotation around +z in coord_frame)
     class_id: int
-    confidence: Optional[float]
-    track_id: Optional[int]
+    confidence: Optional[float] = None
+    track_id: Optional[int] = None
 
 
 @dataclass()
@@ -133,8 +133,8 @@ class RadarPointDetections:
     meta: OverlayMeta
     xyz: np.ndarray  # (N,3) in coord_frame (often sensor or ego)
     features: dict[str, np.ndarray]  # e.g. {"doppler": (N,), "rcs": (N,), "snr": (N,)}
-    class_id: Optional[np.ndarray]
-    confidence: Optional[np.ndarray]
+    class_id: Optional[np.ndarray] = None
+    confidence: Optional[np.ndarray] = None
 
 
 @dataclass()
@@ -153,9 +153,9 @@ class RadarPolarDetections:
 
     meta: OverlayMeta
     range_m: np.ndarray
-    azimuth_rad: Optional[np.ndarray]
-    doppler_mps: Optional[np.ndarray]
-    amplitude: Optional[np.ndarray]
+    azimuth_rad: Optional[np.ndarray] = None
+    doppler_mps: Optional[np.ndarray] = None
+    amplitude: Optional[np.ndarray] = None
 
 
 @dataclass()
@@ -175,9 +175,9 @@ class TrackState:
 
     timestamp: float
     position_xyz: np.ndarray  # (3,) in track coord_frame
-    velocity_xyz: Optional[np.ndarray]
-    yaw: Optional[float]
-    covariance: Optional[np.ndarray]  # (K,K) optional (Kalman)
+    velocity_xyz: Optional[np.ndarray] = None
+    yaw: Optional[float] = None
+    covariance: Optional[np.ndarray] = None  # (K,K) optional (Kalman)
 
 
 @dataclass()
@@ -198,9 +198,9 @@ class Track:
 
     meta: OverlayMeta
     track_id: int
-    class_id: Optional[int]
     states: List[TrackState]
-    confidence: Optional[float]
+    class_id: Optional[int] = None
+    confidence: Optional[float] = None
 
 
 @dataclass()

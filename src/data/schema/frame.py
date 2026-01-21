@@ -33,6 +33,7 @@ class FrameMeta:
       split="train"
       weather="rain"
     """
+
     sequence_id: Optional[str]  # video/scene id
     dataset: Optional[str]  # "radiate", "mot17", ...
     scene: Optional[str]  # scene name or location
@@ -47,6 +48,7 @@ class SensorFrame:
     - kind: "radar" / "image" / "lidar" / ...
     - data: modality-specific sensor frame data
     """
+
     kind: str
     data: Union[RadarSensorFrame, ImageSensorFrame, LidarSensorFrame]
 
@@ -71,8 +73,9 @@ class Frame:
       overlays=None
       meta=FrameMeta(sequence_id="seq_01", dataset="radiate", scene=None, split="train", weather=None)
     """
+
     timestamp: float
     frame_id: int
     sensors: dict[str, SensorFrame]
-    overlays: Optional[OverlaySet]
-    meta: Optional[FrameMeta]
+    overlays: Optional[OverlaySet] = None
+    meta: Optional[FrameMeta] = None

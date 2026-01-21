@@ -22,11 +22,16 @@ class LidarMeta:
     Example:
       frame="sensor:lidar_top"
       sensor_pose_in_ego=np.eye(4, dtype=np.float32)
+      ego_pose_in_world: (4, 4) SE(3) transform, ego -> world (optional)
     """
+
     frame: str
     sensor_pose_in_ego: np.ndarray  # (4x4 SE(3) transform)
+    ego_pose_in_world: Optional[np.ndarray] = None  # (4x4 SE(3) transform), ego -> world
 
 
+# NOTE: This LidarPointCloud is currently the same with PointCloud from radar.py
+# Idk if its a good idea to share them, but right now, they are different classes
 @dataclass()
 class LidarPointCloud:
     """
@@ -40,6 +45,7 @@ class LidarPointCloud:
       features={"intensity": np.zeros(2048, dtype=np.float32)}
       frame="sensor"
     """
+
     xyz: np.ndarray  # (N,3)
     features: dict[str, np.ndarray]
     frame: str
@@ -51,6 +57,7 @@ class LidarSensorFrame:
     Single lidar capture with metadata and point cloud.
     - point_cloud: optional sparse or dense points
     """
+
     sensor_id: str
     meta: LidarMeta
     point_cloud: Optional[LidarPointCloud]

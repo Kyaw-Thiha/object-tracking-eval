@@ -5,7 +5,20 @@ import numpy as np
 
 @dataclass()
 class RadarMeta:
-    pass
+    """
+    Radar metadata for a single frame.
+    - frame: coordinate frame name (e.g., "sensor:lidar_top")
+    - sensor_pose_in_ego: (4, 4) SE(3) transform, sensor -> ego
+
+    Example:
+      frame="sensor:lidar_top"
+      sensor_pose_in_ego=np.eye(4, dtype=np.float32)
+      ego_pose_in_world: (4, 4) SE(3) transform, ego -> world (optional)
+    """
+
+    frame: str
+    sensor_pose_in_ego: np.ndarray  # (4x4 SE(3) transform), sensor -> ego
+    ego_pose_in_world: Optional[np.ndarray] = None  # (4x4 SE(3) transform), ego -> world
 
 
 @dataclass()
@@ -60,5 +73,5 @@ class RadarSensorFrame:
 
     sensor_id: str
     meta: RadarMeta
-    grids: dict[str, GridRadar]
-    point_cloud: Optional[PointCloud]
+    grids: Optional[dict[str, GridRadar]] = None
+    point_cloud: Optional[PointCloud] = None
