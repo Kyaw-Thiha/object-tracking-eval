@@ -39,7 +39,7 @@ class NuScenesAdapter(BaseAdapter):
     nusc: NuScenes
     class_map = NUSCENES_CLASS_MAP
 
-    def __init__(self, dataset_name: str, dataset_path: str = "/data/nuScenes") -> None:
+    def __init__(self, dataset_name: str = "NuScenes", dataset_path: str = "data/nuScenes") -> None:
         self.nusc = NuScenes(version="v1.0-mini", dataroot=dataset_path, verbose=True)
         self.instance_id_map = self.build_instance_map()
         super().__init__(dataset_name, dataset_path)
@@ -188,3 +188,39 @@ class NuScenesAdapter(BaseAdapter):
             radar_polar_dets={},
             tracks={},
         )
+
+
+# Testing the Adapter to see if everything looks good
+# Can be ran from root using
+#   python -m src.data.adapters.nuscenes
+if __name__ == "__main__":
+    nuscenes_adapter = NuScenesAdapter()
+
+    # Checking the sensor ids
+    print("--- Sensor Ids ---")
+    sensor_ids = nuscenes_adapter.get_sensor_ids()
+    for sensor_id in sensor_ids:
+        print(sensor_id)
+    print("")
+
+    # Checking the sequence ids
+    print("--- Sequence Ids ---")
+    sequence_ids = nuscenes_adapter.get_sequence_ids()
+    for sequence_id in sequence_ids:
+        print(sequence_id)
+    print("")
+
+    # Looping through each frame
+    print("--- Frames ---")
+    first_frame = True
+    for frame in nuscenes_adapter:  # using __getitem__ defined in BaseAdapter
+        # ensuring that we only loop through the first video
+        # we are doing this since frame id restarts for each video sequence
+        if frame.frame_id == 0:
+            if not first_frame:
+                break
+            first_frame = False
+
+        print(frame.frame_id)
+
+    print("")
