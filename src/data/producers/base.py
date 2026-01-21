@@ -24,6 +24,7 @@ class BaseProducer(Dataset, ABC):
     @abstractmethod
     def get_sensors(self, frame: Frame) -> dict[str, Any]: ...
 
+    @abstractmethod
     def preprocess(self, sensors: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         # Default: no-op
         return sensors, {}

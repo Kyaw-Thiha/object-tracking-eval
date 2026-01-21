@@ -20,14 +20,13 @@ class CamelEvaluationProducer(BaseProducer):
         img = {}
         if isinstance(data, ImageSensorFrame):
             img = data.image  # BGR from cv2.imread
-            img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
         return {"cam": img}
 
     def preprocess(self, sensors: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         img = sensors["cam"]
-        img_resized, scale = self.letterbox(img, self.input_size)
+        img_resized, scale, pad_shape = self.letterbox(img, self.input_size, size_divisor=32)
         img_tensor = torch.from_numpy(img_resized).permute(2, 0, 1).float()
-        return {"cam": img_tensor}, {"scale_factor": scale, "ori_shape": img.shape}
+        return {"cam": img_tensor}, {"scale_factor": scale, "ori_shape": img.shape, "pad_shape": pad_shape}
 
     def build_target(self, frame: Frame, meta: dict[str, Any]) -> dict[str, Any]:
         boxes_list: list[list[float]] = []
@@ -53,18 +52,25 @@ class CamelEvaluationProducer(BaseProducer):
             "img_metas": {
                 "scale_factor": meta["scale_factor"],
                 "ori_shape": meta["ori_shape"],
-                "img_shape": (self.input_size[1], self.input_size[0], 3),
-                "pad_shape": (self.input_size[1], self.input_size[0], 3),
+                "img_shape": meta["pad_shape"],
+                "pad_shape": meta["pad_shape"],
             },
         }
         return target
 
-    def letterbox(self, img: np.ndarray, target_size: tuple[int, int]) -> tuple[np.ndarray, float]:
+    def letterbox(self, img: np.ndarray, target_size: tuple[int, int], size_divisor: int) -> tuple[np.ndarray, float, tuple[int, int, int]]:
         target_w, target_h = target_size
-        padded = np.ones((target_h, target_w, 3), dtype=np.float32) * 114.0
 
+        # Resizing
         ratio = min(target_h / img.shape[0], target_w / img.shape[1])
-        resized = cv.resize(img, (int(img.shape[1] * ratio), int(img.shape[0] * ratio)), interpolation=cv.INTER_LINEAR).astype(np.float32)
+        resized_w = int(img.shape[1] * ratio)
+        resized_h = int(img.shape[0] * ratio)
+        resized = cv.resize(img, (resized_w, resized_h), interpolation=cv.INTER_LINEAR).astype(np.float32)
+
+        # Padding to ensure divisibility
+        pad_w = int(np.ceil(resized_w / size_divisor) * size_divisor)
+        pad_h = int(np.ceil(resized_h / size_divisor) * size_divisor)
+        padded = np.ones((pad_h, pad_w, 3), dtype=np.float32) * 114.0
 
         padded[: resized.shape[0], : resized.shape[1]] = resized
-        return padded, ratio
+        return padded, ratio, (pad_h, pad_w, 3)
