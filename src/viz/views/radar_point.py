@@ -44,7 +44,7 @@ class RadarPointView(BaseView[RadarPointViewConfig]):
     def build_point_layer(self, frame: Frame, cfg: RadarPointViewConfig) -> PointLayer:
         """Create the point cloud layer for radar detections."""
         radar = frame.sensors[cfg.sensor_id].data
-        assert radar is RadarSensorFrame
+        assert isinstance(radar, RadarSensorFrame)
 
         pc = radar.point_cloud
         if pc is None:

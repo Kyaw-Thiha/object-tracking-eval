@@ -50,7 +50,7 @@ class LidarView(BaseView[LidarViewConfig]):
     def build_points_layer(self, frame: Frame, cfg: LidarViewConfig) -> PointLayer | None:
         """Create the point cloud layer if available."""
         lidar = frame.sensors[cfg.sensor_id].data
-        assert lidar is LidarSensorFrame
+        assert isinstance(lidar, LidarSensorFrame)
         pc = lidar.point_cloud
         if pc is None:
             return None

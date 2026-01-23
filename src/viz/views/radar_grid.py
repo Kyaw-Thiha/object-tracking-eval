@@ -38,7 +38,7 @@ class RadarGridView(BaseView[RadarGridViewConfig]):
     def build_grid_layer(self, frame: Frame, cfg: RadarGridViewConfig) -> RasterLayer:
         """Create the radar grid raster layer for a single grid product."""
         radar = frame.sensors[cfg.sensor_id].data
-        assert radar is RadarSensorFrame
+        assert isinstance(radar, RadarSensorFrame)
         if radar.grids is None or cfg.grid_name not in radar.grids:
             raise ValueError(f"Grid {cfg.grid_name} not found for {cfg.sensor_id}")
         grid = radar.grids[cfg.grid_name]

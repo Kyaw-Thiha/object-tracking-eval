@@ -45,7 +45,7 @@ class CameraView(BaseView[CameraViewConfig]):
     def build_image_layer(self, frame: Frame, cfg: CameraViewConfig) -> RasterLayer:
         """Create the image raster layer for the camera."""
         sensor = frame.sensors[cfg.sensor_id].data
-        assert sensor is ImageSensorFrame
+        assert isinstance(sensor, ImageSensorFrame)
 
         return RasterLayer(
             name=f"{cfg.sensor_id}.image",
@@ -120,7 +120,7 @@ class CameraView(BaseView[CameraViewConfig]):
         labels = [f"id={t.track_id}" for t in tracks] if cfg.show_labels else None
 
         sensor = frame.sensors[cfg.sensor_id].data
-        assert sensor is ImageSensorFrame
+        assert isinstance(sensor, ImageSensorFrame)
         coord_frame = sensor.meta.frame
         positions_sensor = positions
 
@@ -137,7 +137,8 @@ class CameraView(BaseView[CameraViewConfig]):
 
         text_layer = None
         if cfg.show_labels and coord_frame == sensor.meta.frame:
-            uv, valid = project_points_to_image(positions_sensor, sensor.meta.intrinsics, sensor.image.shape[:2])
+            image_shape = (int(sensor.image.shape[0]), int(sensor.image.shape[1]))
+            uv, valid = project_points_to_image(positions_sensor, sensor.meta.intrinsics, image_shape)
             if not np.any(valid):
                 return []
 
