@@ -1,7 +1,9 @@
+"""Lidar view builder."""
+
 from dataclasses import dataclass
 import numpy as np
 
-from data.schema.lidar import LidarSensorFrame
+from ...data.schema.lidar import LidarSensorFrame
 
 from .base import BaseView
 from ..schema.render_spec import RenderSpec
@@ -13,15 +15,20 @@ from ...data.schema.overlay import Track
 
 @dataclass
 class LidarViewConfig:
+    """Configuration for LidarView rendering."""
+
     sensor_id: str
     source_key: str
     show_tracks: bool = True
 
 
 class LidarView(BaseView[LidarViewConfig]):
+    """Builds a lidar RenderSpec with points, boxes, and tracks."""
+
     name = "LidarView"
 
     def build(self, frame: Frame, cfg: LidarViewConfig) -> RenderSpec:
+        """Assemble the lidar view layers for a frame."""
         layers = []
 
         point_layer = self.build_points_layer(frame, cfg)
@@ -41,6 +48,7 @@ class LidarView(BaseView[LidarViewConfig]):
         return RenderSpec(title=cfg.sensor_id, coord_frame=lidar.meta.frame, layers=layers, meta=meta)
 
     def build_points_layer(self, frame: Frame, cfg: LidarViewConfig) -> PointLayer | None:
+        """Create the point cloud layer if available."""
         lidar = frame.sensors[cfg.sensor_id].data
         assert lidar is LidarSensorFrame
         pc = lidar.point_cloud
@@ -64,6 +72,7 @@ class LidarView(BaseView[LidarViewConfig]):
         )
 
     def build_boxes3d_layer(self, frame: Frame, cfg: LidarViewConfig) -> Box3DLayer | None:
+        """Create the 3D box overlay layer if available."""
         lidar = frame.sensors[cfg.sensor_id].data
 
         if not (frame.overlays and cfg.source_key in frame.overlays.boxes3D):
@@ -94,6 +103,7 @@ class LidarView(BaseView[LidarViewConfig]):
         )
 
     def build_tracks_layer(self, frame: Frame, cfg: LidarViewConfig) -> TrackLayer | None:
+        """Create the track overlay layer if available."""
         lidar = frame.sensors[cfg.sensor_id].data
 
         if not (cfg.show_tracks and frame.overlays and cfg.source_key in frame.overlays.tracks):

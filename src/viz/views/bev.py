@@ -1,9 +1,10 @@
+"""BEV view builder."""
+
 from dataclasses import dataclass
 import numpy as np
 
-from data.schema.image import ImageSensorFrame
-from data.schema.lidar import LidarSensorFrame
-from data.schema.radar import RadarSensorFrame
+from ...data.schema.lidar import LidarSensorFrame
+from ...data.schema.radar import RadarSensorFrame
 
 from .base import BaseView
 from ..schema.render_spec import RenderSpec
@@ -15,6 +16,8 @@ from ...data.schema.overlay import Track
 
 @dataclass
 class BEVViewConfig:
+    """Configuration for BEVView rendering."""
+
     source_keys: list[str]
     sensor_ids: list[str]
     show_axes: bool = True
@@ -22,9 +25,12 @@ class BEVViewConfig:
 
 
 class BEVView(BaseView[BEVViewConfig]):
+    """Builds a BEV RenderSpec from multiple sensor inputs and overlays."""
+
     name = "BEVView"
 
     def build(self, frame: Frame, cfg: BEVViewConfig) -> RenderSpec:
+        """Assemble the BEV view layers for a frame."""
         layers = []
 
         if cfg.show_axes:
@@ -40,6 +46,7 @@ class BEVView(BaseView[BEVViewConfig]):
         return RenderSpec(title="BEV", coord_frame="ego", layers=layers, meta=meta)
 
     def build_axes_layer(self, frame: Frame) -> LineLayer:
+        """Create ego-axis line layers."""
         axes = np.array(
             [
                 [[0, 0, 0], [5, 0, 0]],
@@ -61,6 +68,7 @@ class BEVView(BaseView[BEVViewConfig]):
         )
 
     def build_sensor_point_layers(self, frame: Frame, cfg: BEVViewConfig) -> list[PointLayer]:
+        """Create point cloud layers for sensors that provide point clouds."""
         layers = []
         for sensor_id in cfg.sensor_ids:
             sensor = frame.sensors[sensor_id].data
@@ -88,6 +96,7 @@ class BEVView(BaseView[BEVViewConfig]):
         return layers
 
     def build_boxes3d_layers(self, frame: Frame, cfg: BEVViewConfig) -> list[Box3DLayer]:
+        """Create 3D box overlay layers for each requested source."""
         layers = []
         if not frame.overlays:
             return layers
@@ -121,6 +130,7 @@ class BEVView(BaseView[BEVViewConfig]):
         return layers
 
     def build_tracks_layers(self, frame: Frame, cfg: BEVViewConfig) -> list[TrackLayer]:
+        """Create track overlay layers for each requested source."""
         layers = []
         if not (cfg.show_tracks and frame.overlays):
             return layers

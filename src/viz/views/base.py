@@ -1,3 +1,5 @@
+"""Base view interfaces for RenderSpec builders."""
+
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
@@ -8,12 +10,17 @@ ConfigType = TypeVar("ConfigType")
 
 
 class BaseView(ABC, Generic[ConfigType]):
+    """Base class for view builders that produce RenderSpec objects."""
+
     name: str
 
     @abstractmethod
-    def build(self, frame: Frame, cfg: ConfigType) -> RenderSpec: ...
+    def build(self, frame: Frame, cfg: ConfigType) -> RenderSpec:
+        """Build a RenderSpec for a single frame using the provided config."""
+        ...
 
     def build_meta(self, frame: Frame, sensor_ids: list[str], source_keys: list[str]) -> RenderSpecMeta:
+        """Build common RenderSpec metadata for a view."""
         return RenderSpecMeta(
             frame_id=frame.frame_id,
             timestamp=frame.timestamp,

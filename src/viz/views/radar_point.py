@@ -1,8 +1,9 @@
+"""Radar point view builder."""
+
 from dataclasses import dataclass
-from typing import List
 import numpy as np
 
-from data.schema.radar import RadarSensorFrame
+from ...data.schema.radar import RadarSensorFrame
 
 from .base import BaseView
 from ..schema.render_spec import RenderSpec
@@ -14,6 +15,8 @@ from ...data.schema.overlay import Track
 
 @dataclass
 class RadarPointViewConfig:
+    """Configuration for RadarPointView rendering."""
+
     sensor_id: str
     source_key: str
     value_key: str | None = None
@@ -22,10 +25,13 @@ class RadarPointViewConfig:
 
 
 class RadarPointView(BaseView[RadarPointViewConfig]):
+    """Builds a radar point RenderSpec with optional track overlays."""
+
     name = "RadarPointView"
 
     def build(self, frame: Frame, cfg: RadarPointViewConfig) -> RenderSpec:
-        layers: List[Layer] = [self.build_point_layer(frame, cfg)]
+        """Assemble the radar point view layers for a frame."""
+        layers: list[Layer] = [self.build_point_layer(frame, cfg)]
 
         track_layer = self.build_tracks_layer(frame, cfg)
         if track_layer is not None:
@@ -36,6 +42,7 @@ class RadarPointView(BaseView[RadarPointViewConfig]):
         return RenderSpec(title=f"{cfg.sensor_id}:points", coord_frame=radar.meta.frame, layers=layers, meta=meta)
 
     def build_point_layer(self, frame: Frame, cfg: RadarPointViewConfig) -> PointLayer:
+        """Create the point cloud layer for radar detections."""
         radar = frame.sensors[cfg.sensor_id].data
         assert radar is RadarSensorFrame
 
@@ -61,6 +68,7 @@ class RadarPointView(BaseView[RadarPointViewConfig]):
         )
 
     def build_tracks_layer(self, frame: Frame, cfg: RadarPointViewConfig) -> TrackLayer | None:
+        """Create the track overlay layer if available."""
         if not (cfg.show_tracks and frame.overlays and cfg.source_key in frame.overlays.tracks):
             return None
 

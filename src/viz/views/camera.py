@@ -1,19 +1,21 @@
-from dataclasses import dataclass
-from typing import Union
-import numpy as np
+"""Camera view builder."""
 
-from data.schema.image import ImageSensorFrame
+from dataclasses import dataclass
+import numpy as np
 
 from .base import BaseView
 from ..schema.render_spec import RenderSpec
 from ..schema.layers import RasterLayer, Box2DLayer, TrackLayer
 from ..schema.base_layer import Layer, LayerMeta
 from ...data.schema.frame import Frame
+from ...data.schema.image import ImageSensorFrame
 from ...data.schema.overlay import Box2D, Track
 
 
 @dataclass
 class CameraViewConfig:
+    """Configuration for CameraView rendering."""
+
     sensor_id: str
     source_key: str
     show_boxes: bool = True
@@ -22,9 +24,12 @@ class CameraViewConfig:
 
 
 class CameraView(BaseView[CameraViewConfig]):
+    """Builds a camera RenderSpec with image, 2D boxes, and tracks."""
+
     name = "CameraView"
 
     def build(self, frame: Frame, cfg: CameraViewConfig) -> RenderSpec:
+        """Assemble the camera view layers for a frame."""
         layers: list[Layer] = [self.build_image_layer(frame, cfg)]
 
         box_layer = self.build_boxes2d_layer(frame, cfg)
@@ -39,6 +44,7 @@ class CameraView(BaseView[CameraViewConfig]):
         return RenderSpec(title=cfg.sensor_id, coord_frame=f"sensor:{cfg.sensor_id}", layers=layers, meta=meta)
 
     def build_image_layer(self, frame: Frame, cfg: CameraViewConfig) -> RasterLayer:
+        """Create the image raster layer for the camera."""
         sensor = frame.sensors[cfg.sensor_id].data
         assert sensor is ImageSensorFrame
 
@@ -60,6 +66,7 @@ class CameraView(BaseView[CameraViewConfig]):
         )
 
     def build_boxes2d_layer(self, frame: Frame, cfg: CameraViewConfig) -> Box2DLayer | None:
+        """Create the 2D box overlay layer if available."""
         if not (cfg.show_boxes and frame.overlays and cfg.source_key in frame.overlays.boxes2D):
             return None
 
@@ -88,6 +95,7 @@ class CameraView(BaseView[CameraViewConfig]):
         )
 
     def build_tracks_layer(self, frame: Frame, cfg: CameraViewConfig) -> TrackLayer | None:
+        """Create the track overlay layer if available."""
         if not (cfg.show_tracks and frame.overlays and cfg.source_key in frame.overlays.tracks):
             return None
 
@@ -97,18 +105,20 @@ class CameraView(BaseView[CameraViewConfig]):
 
         # NOTE: No 2D projection available yet.
         # If you later add image-space projections, plug them here.
-        positions = np.stack([t.states[-1].position_xyz for t in tracks], axis=0)
+        positions_list = [t.states[-1].position_xyz for t in tracks if t.states]
+        if not positions_list:
+            return None
+
+        positions = np.stack(positions_list, axis=0)
         track_ids = np.array([t.track_id for t in tracks], dtype=int)
-        velocities = (
-            np.stack([t.states[-1].velocity_xyz for t in tracks if t.states[-1].velocity_xyz is not None], axis=0)
-            if any(t.states[-1].velocity_xyz is not None for t in tracks)
-            else None
-        )
-        yaws = (
-            np.array([t.states[-1].yaw for t in tracks if t.states[-1].yaw is not None], dtype=float)
-            if any(t.states[-1].yaw is not None for t in tracks)
-            else None
-        )
+
+        velocities_list = [t.states[-1].velocity_xyz for t in tracks if t.states and t.states[-1].velocity_xyz is not None]
+        velocities = np.stack(velocities_list, axis=0) if len(velocities_list) == len(tracks) else None
+
+        if all(t.states[-1].yaw is not None for t in tracks):
+            yaws = np.array([t.states[-1].yaw for t in tracks], dtype=float)
+        else:
+            yaws = None
 
         labels = [f"id={t.track_id}" for t in tracks] if cfg.show_labels else None
 
