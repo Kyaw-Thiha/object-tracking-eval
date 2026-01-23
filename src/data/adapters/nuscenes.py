@@ -6,7 +6,7 @@ from ..schema.overlay import Box3D, OverlayMeta, OverlaySet
 from ..schema.frame import FrameMeta, SensorFrame
 from ..schema.image import ImageMeta, ImageSensorFrame
 from ..schema.lidar import LidarMeta, LidarPointCloud, LidarSensorFrame
-from ..schema.radar import PointCloud, RadarMeta, RadarSensorFrame
+from ..schema.radar import GridRadar, PointCloud, RadarMeta, RadarSensorFrame
 from .base import BaseAdapter
 from ..utils.transforms import se3_from_quaternion, yaw_from_quaternion
 
@@ -39,10 +39,82 @@ class NuScenesAdapter(BaseAdapter):
     nusc: NuScenes
     class_map = NUSCENES_CLASS_MAP
 
-    def __init__(self, dataset_name: str = "NuScenes", dataset_path: str = "data/nuScenes") -> None:
+    def __init__(
+        self,
+        dataset_name: str = "NuScenes",
+        dataset_path: str = "data/nuScenes",
+        synthesize_radar_grids: bool = False,
+        radar_range_bins: np.ndarray | None = None,
+        radar_azimuth_bins: np.ndarray | None = None,
+        radar_doppler_bins: np.ndarray | None = None,
+        radar_grid_value: str = "count",
+    ) -> None:
         self.nusc = NuScenes(version="v1.0-mini", dataroot=dataset_path, verbose=True)
         self.instance_id_map = self.build_instance_map()
+        self.synthesize_radar_grids = synthesize_radar_grids
+        self.radar_grid_value = radar_grid_value
+        self.radar_range_bins = radar_range_bins if radar_range_bins is not None else np.arange(0.0, 80.0 + 0.5, 0.5)
+        self.radar_azimuth_bins = (
+            radar_azimuth_bins if radar_azimuth_bins is not None else np.linspace(-1.2, 1.2, 256)
+        )
+        self.radar_doppler_bins = (
+            radar_doppler_bins if radar_doppler_bins is not None else np.linspace(-20.0, 20.0, 161)
+        )
         super().__init__(dataset_name, dataset_path)
+
+    def build_radar_grids(self, xyz: np.ndarray, features: dict[str, np.ndarray]) -> dict[str, GridRadar]:
+        x = xyz[:, 0]
+        y = xyz[:, 1]
+        rng = np.sqrt(x**2 + y**2)
+        az = np.arctan2(y, x)
+
+        doppler = features.get("doppler")
+        rcs = features.get("rcs")
+
+        weights = None
+        if self.radar_grid_value == "rcs" and rcs is not None:
+            weights = rcs
+
+        ra, r_edges, a_edges = np.histogram2d(
+            rng,
+            az,
+            bins=[self.radar_range_bins, self.radar_azimuth_bins],
+            weights=weights,
+        )
+        ra_bins = {
+            "range": 0.5 * (r_edges[:-1] + r_edges[1:]),
+            "azimuth": 0.5 * (a_edges[:-1] + a_edges[1:]),
+        }
+        ra_grid = GridRadar(
+            tensor=ra,
+            axes=("range", "azimuth"),
+            layouts="R,A",
+            bins=ra_bins,
+            units={"range": "m", "azimuth": "rad"},
+        )
+
+        grids: dict[str, GridRadar] = {"RA": ra_grid}
+
+        if doppler is not None:
+            rd, r_edges, d_edges = np.histogram2d(
+                rng,
+                doppler,
+                bins=[self.radar_range_bins, self.radar_doppler_bins],
+                weights=weights,
+            )
+            rd_bins = {
+                "range": 0.5 * (r_edges[:-1] + r_edges[1:]),
+                "doppler": 0.5 * (d_edges[:-1] + d_edges[1:]),
+            }
+            grids["RD"] = GridRadar(
+                tensor=rd,
+                axes=("range", "doppler"),
+                layouts="R,D",
+                bins=rd_bins,
+                units={"range": "m", "doppler": "m/s"},
+            )
+
+        return grids
 
     # Mapping
     def build_instance_map(self) -> dict[str, int]:
@@ -136,11 +208,34 @@ class NuScenesAdapter(BaseAdapter):
                 point_cloud = RadarPointCloud.from_file(point_cloud_path)
                 xyz = point_cloud.points[:3, :].T
 
+                rcs = point_cloud.points[5, :]
+                vx = point_cloud.points[6, :]
+                vy = point_cloud.points[7, :]
+                rng = np.sqrt(xyz[:, 0] ** 2 + xyz[:, 1] ** 2) + 1e-6
+                doppler = (xyz[:, 0] * vx + xyz[:, 1] * vy) / rng
+
+                features = {
+                    "rcs": rcs.astype(np.float32),
+                    "vx": vx.astype(np.float32),
+                    "vy": vy.astype(np.float32),
+                    "doppler": doppler.astype(np.float32),
+                }
+
                 sensor_pose_in_ego = se3_from_quaternion(calibrated_sensor["rotation"], calibrated_sensor["translation"])
                 ego_pose_in_world = se3_from_quaternion(ego["rotation"], ego["translation"])
 
                 meta = RadarMeta(frame=f"sensor:{sensor_id}", sensor_pose_in_ego=sensor_pose_in_ego, ego_pose_in_world=ego_pose_in_world)
-                data = RadarSensorFrame(sensor_id=sensor_id, meta=meta, point_cloud=PointCloud(xyz=xyz, features={}, frame="sensor"))
+
+                grids = None
+                if self.synthesize_radar_grids:
+                    grids = self.build_radar_grids(xyz, features)
+
+                data = RadarSensorFrame(
+                    sensor_id=sensor_id,
+                    meta=meta,
+                    grids=grids,
+                    point_cloud=PointCloud(xyz=xyz, features=features, frame="sensor"),
+                )
                 sensors[sensor_id] = SensorFrame(kind="radar", data=data)
 
         return sensors

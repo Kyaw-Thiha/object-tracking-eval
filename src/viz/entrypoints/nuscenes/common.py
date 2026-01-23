@@ -28,8 +28,8 @@ class NuscenesArgs:
     backend: BackendName
 
 
-def load_adapter(dataset_path: str) -> NuScenesAdapter:
-    return NuScenesAdapter(dataset_path=dataset_path)
+def load_adapter(dataset_path: str, synthesize_radar_grids: bool = False) -> NuScenesAdapter:
+    return NuScenesAdapter(dataset_path=dataset_path, synthesize_radar_grids=synthesize_radar_grids)
 
 
 def get_frame_by_scene(adapter: NuScenesAdapter, scene: str, frame_id: int) -> Frame:

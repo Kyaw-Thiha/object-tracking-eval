@@ -29,7 +29,7 @@ def main() -> None:
         backend=args.backend,
     )
 
-    adapter = load_adapter(cfg.dataset_path)
+    adapter = load_adapter(cfg.dataset_path, synthesize_radar_grids=True)
     frame = resolve_frame(cfg, adapter)
     view = RadarGridView()
     spec = view.build(
