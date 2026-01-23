@@ -5,8 +5,9 @@ import numpy as np
 
 from .base import BaseView
 from ..schema.render_spec import RenderSpec
-from ..schema.layers import RasterLayer, Box2DLayer, TrackLayer
+from ..schema.layers import RasterLayer, Box2DLayer, TrackLayer, TextLayer
 from ..schema.base_layer import Layer, LayerMeta
+from ..transforms import invert_se3, project_points_to_image, transform_points
 from ...data.schema.frame import Frame
 from ...data.schema.image import ImageSensorFrame
 from ...data.schema.overlay import Box2D, Track
@@ -36,9 +37,7 @@ class CameraView(BaseView[CameraViewConfig]):
         if box_layer is not None:
             layers.append(box_layer)
 
-        track_layer = self.build_tracks_layer(frame, cfg)
-        if track_layer is not None:
-            layers.append(track_layer)
+        layers.extend(self.build_tracks_layers(frame, cfg))
 
         meta = self.build_meta(frame, [cfg.sensor_id], [cfg.source_key])
         return RenderSpec(title=cfg.sensor_id, coord_frame=f"sensor:{cfg.sensor_id}", layers=layers, meta=meta)
@@ -94,25 +93,23 @@ class CameraView(BaseView[CameraViewConfig]):
             class_ids=None,
         )
 
-    def build_tracks_layer(self, frame: Frame, cfg: CameraViewConfig) -> TrackLayer | None:
-        """Create the track overlay layer if available."""
+    def build_tracks_layers(self, frame: Frame, cfg: CameraViewConfig) -> list[Layer]:
+        """Create track and label layers if available."""
         if not (cfg.show_tracks and frame.overlays and cfg.source_key in frame.overlays.tracks):
-            return None
+            return []
 
-        tracks = [t for t in frame.overlays.tracks[cfg.source_key] if isinstance(t, Track) and t.meta.sensor_id == cfg.sensor_id]
+        tracks = [
+            t
+            for t in frame.overlays.tracks[cfg.source_key]
+            if isinstance(t, Track) and t.meta.sensor_id == cfg.sensor_id and t.states
+        ]
         if not tracks:
-            return None
+            return []
 
-        # NOTE: No 2D projection available yet.
-        # If you later add image-space projections, plug them here.
-        positions_list = [t.states[-1].position_xyz for t in tracks if t.states]
-        if not positions_list:
-            return None
-
-        positions = np.stack(positions_list, axis=0)
+        positions = np.stack([t.states[-1].position_xyz for t in tracks], axis=0)
         track_ids = np.array([t.track_id for t in tracks], dtype=int)
 
-        velocities_list = [t.states[-1].velocity_xyz for t in tracks if t.states and t.states[-1].velocity_xyz is not None]
+        velocities_list = [t.states[-1].velocity_xyz for t in tracks if t.states[-1].velocity_xyz is not None]
         velocities = np.stack(velocities_list, axis=0) if len(velocities_list) == len(tracks) else None
 
         if all(t.states[-1].yaw is not None for t in tracks):
@@ -122,23 +119,75 @@ class CameraView(BaseView[CameraViewConfig]):
 
         labels = [f"id={t.track_id}" for t in tracks] if cfg.show_labels else None
 
-        return TrackLayer(
-            name=f"{cfg.sensor_id}.tracks",
-            meta=LayerMeta(
-                source=cfg.source_key,
-                sensor_id=cfg.sensor_id,
-                kind="track",
-                coord_frame=f"sensor:{cfg.sensor_id}",
-                timestamp=frame.timestamp,
-            ),
-            track_ids=track_ids,
-            positions_xyz=positions,
-            velocities_xyz=velocities,
-            yaws=yaws,
-            covariances=None,
-            labels=labels,
-            history=None,
-            source_key=cfg.source_key,
-            history_len=None,
-            velocity_units="m/s",
+        sensor = frame.sensors[cfg.sensor_id].data
+        assert sensor is ImageSensorFrame
+        coord_frame = sensor.meta.frame
+        positions_sensor = positions
+
+        if all(t.meta.coord_frame == "ego" for t in tracks):
+            sensor_pose_in_ego = sensor.meta.sensor_pose_in_ego
+            if sensor_pose_in_ego is not None:
+                ego_to_sensor = invert_se3(sensor_pose_in_ego)
+                positions_sensor = transform_points(positions, ego_to_sensor)
+                coord_frame = sensor.meta.frame
+        elif all(t.meta.coord_frame == sensor.meta.frame for t in tracks):
+            coord_frame = sensor.meta.frame
+        else:
+            coord_frame = tracks[0].meta.coord_frame
+
+        text_layer = None
+        if cfg.show_labels and coord_frame == sensor.meta.frame:
+            uv, valid = project_points_to_image(positions_sensor, sensor.meta.intrinsics, sensor.image.shape[:2])
+            if not np.any(valid):
+                return []
+
+            positions_sensor = positions_sensor[valid]
+            track_ids = track_ids[valid]
+            if velocities is not None:
+                velocities = velocities[valid]
+            if yaws is not None:
+                yaws = yaws[valid]
+            if labels is not None:
+                labels = [label for label, keep in zip(labels, valid) if keep]
+
+            text_layer = TextLayer(
+                name=f"{cfg.sensor_id}.track_labels",
+                meta=LayerMeta(
+                    source=cfg.source_key,
+                    sensor_id=cfg.sensor_id,
+                    kind="track_label",
+                    coord_frame="pixel",
+                    timestamp=frame.timestamp,
+                ),
+                xy=uv[valid],
+                texts=labels or [],
+            )
+
+        layers: list[Layer] = []
+        layers.append(
+            TrackLayer(
+                name=f"{cfg.sensor_id}.tracks",
+                meta=LayerMeta(
+                    source=cfg.source_key,
+                    sensor_id=cfg.sensor_id,
+                    kind="track",
+                    coord_frame=coord_frame,
+                    timestamp=frame.timestamp,
+                ),
+                track_ids=track_ids,
+                positions_xyz=positions_sensor,
+                velocities_xyz=velocities,
+                yaws=yaws,
+                covariances=None,
+                labels=labels,
+                history=None,
+                source_key=cfg.source_key,
+                history_len=None,
+                velocity_units="m/s",
+            )
         )
+
+        if text_layer is not None:
+            layers.append(text_layer)
+
+        return layers
