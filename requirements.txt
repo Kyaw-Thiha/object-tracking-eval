@@ -28,6 +28,6 @@ nuscenes-devkit
 
 # For visualization purposes
 open3d
-napari
+napari[pyqt5]
 plotly
 
