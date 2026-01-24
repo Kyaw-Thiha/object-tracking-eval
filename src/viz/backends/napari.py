@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+import os
 
 import numpy as np
-import napari
 
 from .base import BaseBackend
 from ..schema.render_spec import RenderSpec
@@ -22,6 +22,9 @@ class NapariBackend(BaseBackend):
     """Render 2D layers into a napari Viewer."""
 
     def render(self, spec: RenderSpec) -> NapariHandle:
+        self.configure_qt_env()
+        import napari
+
         viewer = napari.Viewer(title=spec.title)
         for layer in spec.layers:
             self.add_layer(viewer, layer)
@@ -54,3 +57,7 @@ class NapariBackend(BaseBackend):
         elif isinstance(layer, TrackLayer):
             pts = layer.positions_xyz[:, :2]
             viewer.add_points(pts, name=layer.name, size=int(layer.style.point_size))
+
+    def configure_qt_env(self) -> None:
+        # Hyprland/Wayland can be flaky for Qt; allow Wayland with X11 fallback.
+        os.environ.setdefault("QT_QPA_PLATFORM", "wayland;xcb")
