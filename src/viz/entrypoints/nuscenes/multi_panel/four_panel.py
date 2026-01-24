@@ -31,7 +31,7 @@ def main() -> None:
         backend="plotly",
     )
 
-    adapter = load_adapter(cfg.dataset_path)
+    adapter = load_adapter(cfg.dataset_path, synthesize_radar_grids=True)
     frame = resolve_frame(cfg, adapter)
 
     cam_spec = CameraView().build(frame, CameraViewConfig(sensor_id=args.camera_id, source_key=args.source_key))
