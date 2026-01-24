@@ -72,9 +72,7 @@ class BEVView(BaseView[BEVViewConfig]):
         layers = []
         for sensor_id in cfg.sensor_ids:
             sensor = frame.sensors[sensor_id].data
-            if sensor is LidarSensorFrame or RadarSensorFrame:  # Choosing the sensors that support point cloud
-                assert sensor is LidarSensorFrame or sensor is RadarSensorFrame
-
+            if isinstance(sensor, (LidarSensorFrame, RadarSensorFrame)):
                 if sensor.point_cloud is not None:  # Since radar can have empty point cloud
                     layers.append(
                         PointLayer(
