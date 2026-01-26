@@ -58,10 +58,10 @@ class Open3DBackend(BaseBackend):
                 continue
             if isinstance(geom, list):
                 for g in geom:
-                    handle.vis.add_geometry(g)
+                    handle.vis.add_geometry(g, reset_bounding_box=False)
                     handle.geometries.append(g)
             else:
-                handle.vis.add_geometry(geom)
+                handle.vis.add_geometry(geom, reset_bounding_box=False)
                 handle.geometries.append(geom)
 
         handle.vis.poll_events()
