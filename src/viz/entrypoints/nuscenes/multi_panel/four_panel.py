@@ -40,6 +40,7 @@ def main() -> None:
     parser.add_argument("--display", type=str, choices=["pixel", "polar"], default="pixel")
     parser.add_argument("--source-key", type=str, default="gt")
     parser.add_argument("--bev-max-points", type=int, default=None)
+    parser.add_argument("--use-webgl", action="store_true", help="Enable WebGL scatter for faster playback.")
     args = parser.parse_args()
 
     cfg = NuscenesArgs(
@@ -88,7 +89,7 @@ def main() -> None:
             titles=["Camera", "Radar Grid", "BEV", "BEV (dup)"],
             rows=2,
             cols=2,
-            use_webgl=False,
+            use_webgl=args.use_webgl,
         ).fig
 
     player = PlotlySequencePlayer(

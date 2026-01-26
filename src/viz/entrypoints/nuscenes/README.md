@@ -97,7 +97,9 @@ python -m src.viz.entrypoints.nuscenes.multi_panel.cam_bev \
   --play-interval 0.2 \
   --camera-id CAM_FRONT \
   --sensor-ids LIDAR_TOP,RADAR_FRONT \
-  --source-key gt
+  --source-key gt \
+  --bev-max-points 20000 \
+  --use-webgl
 ```
 
 ### Radar Grid + BEV
@@ -110,7 +112,9 @@ python -m src.viz.entrypoints.nuscenes.multi_panel.radar_bev \
   --sensor-id RADAR_FRONT \
   --grid-name RA \
   --display pixel \
-  --source-key gt
+  --source-key gt \
+  --bev-max-points 20000 \
+  --use-webgl
 ```
 
 ### 4-Panel (Camera + Radar Grid + BEV)
@@ -124,7 +128,9 @@ python -m src.viz.entrypoints.nuscenes.multi_panel.four_panel \
   --radar-id RADAR_FRONT \
   --grid-name RA \
   --display pixel \
-  --source-key gt
+  --source-key gt \
+  --bev-max-points 20000 \
+  --use-webgl
 ```
 
 ---
@@ -135,6 +141,7 @@ python -m src.viz.entrypoints.nuscenes.multi_panel.four_panel \
   - `napari` is best for camera images and 2D overlays.
   - `plotly` works well for radar grids and multi-panel layouts.
 - Plotly multi-panel scripts currently render Plotly only.
+- Multi-panel speed tips: `--bev-max-points` reduces point count; `--use-webgl` can improve performance but may drop BEV points during animation on some systems.
 
 ---
 
