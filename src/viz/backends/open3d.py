@@ -42,6 +42,7 @@ class Open3DBackend(BaseBackend):
                 vis.add_geometry(geom)
                 geometries.append(geom)
 
+        self.configure_view(vis, spec, geometries)
         vis.poll_events()
         vis.update_renderer()
         return Open3DHandle(vis=vis, geometries=geometries)
@@ -65,6 +66,51 @@ class Open3DBackend(BaseBackend):
 
         handle.vis.poll_events()
         handle.vis.update_renderer()
+
+    def configure_view(self, vis: Any, spec: RenderSpec, geometries: list[o3d.geometry.Geometry]) -> None:
+        if not geometries:
+            return
+        render_opt = vis.get_render_option()
+        if render_opt is not None:
+            render_opt.point_size = 1.0
+        points = self.collect_points(geometries)
+        if points is None or points.size == 0:
+            return
+
+        bbox = o3d.geometry.AxisAlignedBoundingBox.create_from_points(o3d.utility.Vector3dVector(points))
+        center = bbox.get_center()
+
+        vis.reset_view_point(True)
+        view = vis.get_view_control()
+        view.set_lookat(center)
+        if spec.meta.view_name == "BEVView":
+            view.set_front([0.0, 0.0, -1.0])
+            view.set_up([0.0, 1.0, 0.0])
+            view.set_zoom(1.1)
+        else:
+            view.set_front([0.0, -1.0, -0.3])
+            view.set_up([0.0, 0.0, 1.0])
+            view.set_zoom(1.0)
+
+    def collect_points(self, geometries: list[o3d.geometry.Geometry]) -> np.ndarray | None:
+        points = []
+        for geom in geometries:
+            if isinstance(geom, o3d.geometry.PointCloud):
+                if len(geom.points) == 0:
+                    continue
+                points.append(np.asarray(geom.points))
+            elif isinstance(geom, o3d.geometry.LineSet):
+                if len(geom.points) == 0:
+                    continue
+                points.append(np.asarray(geom.points))
+            elif isinstance(geom, o3d.geometry.OrientedBoundingBox):
+                points.append(np.asarray(geom.get_box_points()))
+            elif isinstance(geom, o3d.geometry.AxisAlignedBoundingBox):
+                points.append(np.asarray(geom.get_box_points()))
+
+        if not points:
+            return None
+        return np.vstack(points)
 
     def layer_to_geometry(self, layer: Any) -> o3d.geometry.Geometry | list[o3d.geometry.Geometry] | None:
         import open3d as o3d
