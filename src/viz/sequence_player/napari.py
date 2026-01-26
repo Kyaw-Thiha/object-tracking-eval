@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from napari import Viewer
 
-from viz.backends.napari import NapariBackend
+from ..backends.napari import NapariBackend
 
 from .base import BaseSequencePlayer
 

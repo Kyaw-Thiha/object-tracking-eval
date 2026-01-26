@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from viz.backends.open3d import Open3DBackend
+from ..backends.open3d import Open3DBackend
 
 from .base import BaseSequencePlayer
 
