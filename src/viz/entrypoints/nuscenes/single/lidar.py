@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import textwrap
 
 from ....backends.plotly import PlotlyBackend
 from ....sequence_player.base import SequenceRange
@@ -11,7 +12,22 @@ from ..common import NuscenesArgs, build_backend, load_adapter, resolve_start_in
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="NuScenes lidar view")
+    parser = argparse.ArgumentParser(
+        description="NuScenes lidar view",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent(
+            """\
+            Sequence args:
+              --end-index <int>   inclusive end index (defaults to last frame)
+              --step <int>        stride between frames (default: 1)
+              --play-interval <s> seconds per frame when playing (default: 0.2)
+
+            Keybindings:
+              Open3D: A/D step frames, Space toggles play
+              Plotly: slider + Play/Pause buttons
+            """
+        ),
+    )
     parser.add_argument("--dataset-path", type=str, default="data/nuScenes")
     parser.add_argument("--scene", type=str, default=None)
     parser.add_argument("--frame-id", type=int, default=None)

@@ -8,6 +8,14 @@ Quick commands to visualize NuScenes with the viz stack.
   - `--index <int>`
   - `--scene <scene-name> --frame-id <int>`
 - `--source-key`: overlay source (default: `gt`)
+- Sequence controls:
+  - `--end-index <int>`: inclusive end index (defaults to last frame)
+  - `--step <int>`: stride between frames (default: 1)
+  - `--play-interval <float>`: seconds per frame when playing (default: 0.2)
+- Keybindings:
+  - `open3d`: A/D step frames, Space toggles play
+  - `napari`: Left/Right arrows step frames
+  - `plotly`: slider + Play/Pause buttons
 
 ---
 
@@ -18,6 +26,8 @@ Quick commands to visualize NuScenes with the viz stack.
 python -m src.viz.entrypoints.nuscenes.single.camera \
   --dataset-path data/nuScenes \
   --index 0 \
+  --end-index 20 \
+  --play-interval 0.2 \
   --sensor-id CAM_FRONT \
   --backend napari
 ```
@@ -27,6 +37,8 @@ python -m src.viz.entrypoints.nuscenes.single.camera \
 python -m src.viz.entrypoints.nuscenes.single.radar_grid \
   --dataset-path data/nuScenes \
   --index 0 \
+  --end-index 20 \
+  --play-interval 0.2 \
   --sensor-id RADAR_FRONT \
   --grid-name RA \
   --display polar \
@@ -38,6 +50,8 @@ python -m src.viz.entrypoints.nuscenes.single.radar_grid \
 python -m src.viz.entrypoints.nuscenes.single.radar_point \
   --dataset-path data/nuScenes \
   --index 0 \
+  --end-index 20 \
+  --play-interval 0.2 \
   --sensor-id RADAR_FRONT \
   --value-key doppler \
   --backend plotly
@@ -48,6 +62,8 @@ python -m src.viz.entrypoints.nuscenes.single.radar_point \
 python -m src.viz.entrypoints.nuscenes.single.lidar \
   --dataset-path data/nuScenes \
   --index 0 \
+  --end-index 20 \
+  --play-interval 0.2 \
   --sensor-id LIDAR_TOP \
   --backend open3d
 ```
@@ -75,6 +91,8 @@ python -m src.viz.entrypoints.nuscenes.fusion.bev \
 python -m src.viz.entrypoints.nuscenes.multi_panel.cam_bev \
   --dataset-path data/nuScenes \
   --index 0 \
+  --end-index 20 \
+  --play-interval 0.2 \
   --camera-id CAM_FRONT \
   --sensor-ids LIDAR_TOP,RADAR_FRONT \
   --source-key gt
@@ -85,6 +103,8 @@ python -m src.viz.entrypoints.nuscenes.multi_panel.cam_bev \
 python -m src.viz.entrypoints.nuscenes.multi_panel.radar_bev \
   --dataset-path data/nuScenes \
   --index 0 \
+  --end-index 20 \
+  --play-interval 0.2 \
   --sensor-id RADAR_FRONT \
   --grid-name RA \
   --display pixel \
@@ -96,6 +116,8 @@ python -m src.viz.entrypoints.nuscenes.multi_panel.radar_bev \
 python -m src.viz.entrypoints.nuscenes.multi_panel.four_panel \
   --dataset-path data/nuScenes \
   --index 0 \
+  --end-index 20 \
+  --play-interval 0.2 \
   --camera-id CAM_FRONT \
   --radar-id RADAR_FRONT \
   --grid-name RA \
@@ -111,6 +133,7 @@ python -m src.viz.entrypoints.nuscenes.multi_panel.four_panel \
   - `napari` is best for camera images and 2D overlays.
   - `plotly` works well for radar grids and multi-panel layouts.
 - Plotly multi-panel scripts currently render Plotly only.
+- `fusion.bev` remains single-frame for now; sequence controls are in the other entrypoints.
 
 ---
 

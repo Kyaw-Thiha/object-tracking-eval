@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import textwrap
 
 from ....sequence_player.base import SequenceRange
 from ....sequence_player.plotly import PlotlySequencePlayer
@@ -11,7 +12,21 @@ from ..common import NuscenesArgs, load_adapter, render_plotly_grid, resolve_sta
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="NuScenes 4-panel debug view")
+    parser = argparse.ArgumentParser(
+        description="NuScenes 4-panel debug view",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent(
+            """\
+            Sequence args:
+              --end-index <int>   inclusive end index (defaults to last frame)
+              --step <int>        stride between frames (default: 1)
+              --play-interval <s> seconds per frame when playing (default: 0.2)
+
+            Keybindings:
+              Plotly: slider + Play/Pause buttons
+            """
+        ),
+    )
     parser.add_argument("--dataset-path", type=str, default="data/nuScenes")
     parser.add_argument("--scene", type=str, default=None)
     parser.add_argument("--frame-id", type=int, default=None)
