@@ -26,7 +26,7 @@ class Open3DBackend(BaseBackend):
     def render(self, spec: RenderSpec) -> Open3DHandle:
         self.force_x11_env()
 
-        vis = o3d.visualization.Visualizer()  # type: ignore[reportAttributeAccessIssue]
+        vis = o3d.visualization.VisualizerWithKeyCallback()  # type: ignore[reportAttributeAccessIssue]
         vis.create_window(window_name=spec.title)
 
         geometries: list[o3d.geometry.Geometry] = []
