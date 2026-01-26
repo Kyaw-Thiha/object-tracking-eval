@@ -7,6 +7,7 @@ from typing import Any
 import os
 
 import numpy as np
+from napari import Viewer
 
 from .base import BaseBackend
 from ..schema.render_spec import RenderSpec
@@ -15,7 +16,7 @@ from ..schema.layers import RasterLayer, PointLayer, Box2DLayer, TextLayer, Trac
 
 @dataclass
 class NapariHandle:
-    viewer: napari.Viewer
+    viewer: Viewer
 
 
 class NapariBackend(BaseBackend):
@@ -23,14 +24,13 @@ class NapariBackend(BaseBackend):
 
     def render(self, spec: RenderSpec) -> NapariHandle:
         self.configure_qt_env()
-        import napari
 
-        viewer = napari.Viewer(title=spec.title)
+        viewer = Viewer(title=spec.title)
         for layer in spec.layers:
             self.add_layer(viewer, layer)
         return NapariHandle(viewer=viewer)
 
-    def add_layer(self, viewer: napari.Viewer, layer: Any) -> None:
+    def add_layer(self, viewer: Viewer, layer: Any) -> None:
         if isinstance(layer, RasterLayer):
             viewer.add_image(layer.data, name=layer.name)
 

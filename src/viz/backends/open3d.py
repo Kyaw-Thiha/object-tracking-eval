@@ -7,6 +7,7 @@ from typing import Any
 import os
 
 import numpy as np
+import open3d as o3d
 
 from .base import BaseBackend
 from ..schema.render_spec import RenderSpec
@@ -24,7 +25,6 @@ class Open3DBackend(BaseBackend):
 
     def render(self, spec: RenderSpec) -> Open3DHandle:
         self.force_x11_env()
-        import open3d as o3d
 
         vis = o3d.visualization.Visualizer()  # type: ignore[reportAttributeAccessIssue]
         vis.create_window(window_name=spec.title)
@@ -68,6 +68,7 @@ class Open3DBackend(BaseBackend):
 
     def layer_to_geometry(self, layer: Any) -> o3d.geometry.Geometry | list[o3d.geometry.Geometry] | None:
         import open3d as o3d
+
         if isinstance(layer, PointLayer):
             return self.points_to_geometry(layer)
         if isinstance(layer, LineLayer):
@@ -80,6 +81,7 @@ class Open3DBackend(BaseBackend):
 
     def points_to_geometry(self, layer: PointLayer) -> o3d.geometry.PointCloud:
         import open3d as o3d
+
         pc = o3d.geometry.PointCloud()
         pc.points = o3d.utility.Vector3dVector(layer.xyz.astype(float))
 
@@ -98,6 +100,7 @@ class Open3DBackend(BaseBackend):
 
     def lines_to_geometry(self, layer: LineLayer) -> o3d.geometry.LineSet:
         import open3d as o3d
+
         segments = layer.segments.astype(float)
         points = segments.reshape(-1, segments.shape[-1])
         lines = np.array([[i, i + 1] for i in range(0, points.shape[0], 2)], dtype=int)
@@ -109,6 +112,7 @@ class Open3DBackend(BaseBackend):
 
     def boxes3d_to_geometry(self, layer: Box3DLayer) -> list[o3d.geometry.Geometry]:
         import open3d as o3d
+
         geoms: list[o3d.geometry.Geometry] = []
         for center, size, yaw in zip(layer.centers, layer.sizes_lwh, layer.yaws):
             box = o3d.geometry.OrientedBoundingBox()
@@ -121,6 +125,7 @@ class Open3DBackend(BaseBackend):
 
     def tracks_to_geometry(self, layer: TrackLayer) -> list[o3d.geometry.Geometry]:
         import open3d as o3d
+
         geoms: list[o3d.geometry.Geometry] = []
 
         pc = o3d.geometry.PointCloud()
