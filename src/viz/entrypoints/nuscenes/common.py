@@ -42,6 +42,16 @@ def get_frame_by_scene(adapter: NuScenesAdapter, scene: str, frame_id: int) -> F
     raise ValueError(f"Frame not found for scene={scene} frame_id={frame_id}")
 
 
+def get_frame_index_by_scene(adapter: NuScenesAdapter, scene: str, frame_id: int) -> int:
+    for idx, info in enumerate(adapter.frames):
+        meta = info.get("meta")
+        if not meta:
+            continue
+        if meta.sequence_id == scene and info["frame_id"] == frame_id:
+            return idx
+    raise ValueError(f"Frame not found for scene={scene} frame_id={frame_id}")
+
+
 def get_frame_by_index(adapter: NuScenesAdapter, index: int) -> Frame:
     return adapter.get_frame(index)
 
@@ -52,6 +62,14 @@ def resolve_frame(args: NuscenesArgs, adapter: NuScenesAdapter) -> Frame:
     if args.scene is not None and args.frame_id is not None:
         return get_frame_by_scene(adapter, args.scene, args.frame_id)
     raise ValueError("Provide either --index or both --scene and --frame-id")
+
+
+def resolve_start_index(args, adapter: NuScenesAdapter) -> int:
+    if getattr(args, "index", None) is not None:
+        return args.index
+    if getattr(args, "scene", None) is not None and getattr(args, "frame_id", None) is not None:
+        return get_frame_index_by_scene(adapter, args.scene, args.frame_id)
+    return 0
 
 
 def build_backend(name: BackendName) -> BaseBackend:

@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import argparse
 
+from ....backends.plotly import PlotlyBackend
+from ....sequence_player.base import SequenceRange
+from ....sequence_player.napari import NapariSequencePlayer
+from ....sequence_player.plotly import PlotlySequencePlayer
 from ....views.radar_grid import RadarGridView, RadarGridViewConfig
-from ..common import NuscenesArgs, build_backend, load_adapter, resolve_frame, show_backend
+from ..common import NuscenesArgs, build_backend, load_adapter, resolve_start_index
 
 
 def main() -> None:
@@ -12,6 +16,9 @@ def main() -> None:
     parser.add_argument("--scene", type=str, default=None)
     parser.add_argument("--frame-id", type=int, default=None)
     parser.add_argument("--index", type=int, default=None)
+    parser.add_argument("--end-index", type=int, default=None)
+    parser.add_argument("--step", type=int, default=1)
+    parser.add_argument("--play-interval", type=float, default=0.2)
     parser.add_argument("--sensor-id", type=str, default="RADAR_FRONT")
     parser.add_argument("--source-key", type=str, default="gt")
     parser.add_argument("--grid-name", type=str, default="RA")
@@ -30,20 +37,49 @@ def main() -> None:
     )
 
     adapter = load_adapter(cfg.dataset_path, synthesize_radar_grids=True)
-    frame = resolve_frame(cfg, adapter)
     view = RadarGridView()
-    spec = view.build(
-        frame,
-        RadarGridViewConfig(
-            sensor_id=cfg.sensor_id or "",
-            source_key=cfg.source_key,
-            grid_name=args.grid_name,
-            display=args.display,
-        ),
-    )
-    backend = build_backend(cfg.backend)
-    handle = backend.render(spec)
-    show_backend(handle, cfg.backend)
+    start_idx = resolve_start_index(args, adapter)
+    end_idx = args.end_index if args.end_index is not None else len(adapter.frames) - 1
+    seq = SequenceRange(start=start_idx, end=end_idx, step=args.step)
+
+    def build_spec(frame):
+        return view.build(
+            frame,
+            RadarGridViewConfig(
+                sensor_id=cfg.sensor_id or "",
+                source_key=cfg.source_key,
+                grid_name=args.grid_name,
+                display=args.display,
+            ),
+        )
+
+    if cfg.backend == "plotly":
+        plotly_backend = PlotlyBackend()
+        player = PlotlySequencePlayer(
+            get_frame=adapter.get_frame,
+            build_spec=build_spec,
+            seq=seq,
+            play_interval_s=args.play_interval,
+        )
+
+        def build_figure(frame):
+            spec = build_spec(frame)
+            return plotly_backend.render(spec).fig
+
+        fig = player.build_animation(build_figure)
+        fig.show()
+    else:
+        backend = build_backend(cfg.backend)
+        player = NapariSequencePlayer(
+            get_frame=adapter.get_frame,
+            build_spec=build_spec,
+            seq=seq,
+            play_interval_s=args.play_interval,
+        )
+        player.run(backend)
+        import napari
+
+        napari.run()
 
 
 if __name__ == "__main__":
