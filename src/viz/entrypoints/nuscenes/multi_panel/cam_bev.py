@@ -36,6 +36,7 @@ def main() -> None:
     parser.add_argument("--camera-id", type=str, default="CAM_FRONT")
     parser.add_argument("--sensor-ids", type=str, default="LIDAR_TOP,RADAR_FRONT")
     parser.add_argument("--source-key", type=str, default="gt")
+    parser.add_argument("--bev-max-points", type=int, default=None)
     args = parser.parse_args()
 
     cfg = NuscenesArgs(
@@ -62,8 +63,21 @@ def main() -> None:
 
     def build_figure(frame):
         cam_spec = cam_view.build(frame, CameraViewConfig(sensor_id=args.camera_id, source_key=args.source_key))
-        bev_spec = bev_view.build(frame, BEVViewConfig(sensor_ids=sensor_ids, source_keys=[args.source_key]))
-        return render_plotly_grid(specs=[cam_spec, bev_spec], titles=["Camera", "BEV"], rows=1, cols=2).fig
+        bev_spec = bev_view.build(
+            frame,
+            BEVViewConfig(
+                sensor_ids=sensor_ids,
+                source_keys=[args.source_key],
+                max_points=args.bev_max_points,
+            ),
+        )
+        return render_plotly_grid(
+            specs=[cam_spec, bev_spec],
+            titles=["Camera", "BEV"],
+            rows=1,
+            cols=2,
+            use_webgl=False,
+        ).fig
 
     player = PlotlySequencePlayer(
         get_frame=adapter.get_frame,

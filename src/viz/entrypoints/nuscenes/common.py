@@ -98,12 +98,13 @@ def render_plotly_grid(
     titles: Sequence[str],
     rows: int,
     cols: int,
+    use_webgl: bool = True,
 ) -> PlotlyHandle:
     if len(specs) != rows * cols:
         raise ValueError("specs length must match rows * cols")
 
     fig = make_subplots(rows=rows, cols=cols, subplot_titles=titles)
-    backend = PlotlyBackend()
+    backend = PlotlyBackend(use_webgl=use_webgl)
 
     for idx, spec in enumerate(specs):
         row = idx // cols + 1

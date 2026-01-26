@@ -21,6 +21,9 @@ class PlotlyHandle:
 class PlotlyBackend(BaseBackend):
     """Render 2D layers into a Plotly Figure."""
 
+    def __init__(self, use_webgl: bool = True) -> None:
+        self.use_webgl = use_webgl
+
     def render(self, spec: RenderSpec) -> PlotlyHandle:
         fig = go.Figure()
         fig.update_layout(title=spec.title, yaxis=dict(autorange="reversed"))
@@ -60,8 +63,9 @@ class PlotlyBackend(BaseBackend):
                 marker["color"] = layer.value
                 marker["colorscale"] = layer.style.colormap or "Viridis"
 
+            scatter_cls = go.Scattergl if self.use_webgl else go.Scatter
             fig.add_trace(
-                go.Scattergl(
+                scatter_cls(
                     x=layer.xyz[:, 0],
                     y=layer.xyz[:, 1],
                     mode="markers",
@@ -91,8 +95,9 @@ class PlotlyBackend(BaseBackend):
             if layer.style.palette is not None:
                 marker["color"] = [layer.style.palette.get(int(tid), (1.0, 1.0, 1.0)) for tid in layer.track_ids]
 
+            scatter_cls = go.Scattergl if self.use_webgl else go.Scatter
             fig.add_trace(
-                go.Scattergl(
+                scatter_cls(
                     x=layer.positions_xyz[:, 0],
                     y=layer.positions_xyz[:, 1],
                     mode="markers",

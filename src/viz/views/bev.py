@@ -1,6 +1,7 @@
 """BEV view builder."""
 
 from dataclasses import dataclass
+import math
 import numpy as np
 
 from ...data.schema.lidar import LidarSensorFrame
@@ -20,6 +21,7 @@ class BEVViewConfig:
 
     source_keys: list[str]
     sensor_ids: list[str]
+    max_points: int | None = None
     show_axes: bool = True
     show_tracks: bool = True
 
@@ -74,6 +76,10 @@ class BEVView(BaseView[BEVViewConfig]):
             sensor = frame.sensors[sensor_id].data
             if isinstance(sensor, (LidarSensorFrame, RadarSensorFrame)):
                 if sensor.point_cloud is not None:  # Since radar can have empty point cloud
+                    xyz = sensor.point_cloud.xyz
+                    if cfg.max_points is not None and xyz.shape[0] > cfg.max_points:
+                        stride = max(1, math.ceil(xyz.shape[0] / cfg.max_points))
+                        xyz = xyz[::stride]
                     layers.append(
                         PointLayer(
                             name=f"{sensor_id}.points",
@@ -84,7 +90,7 @@ class BEVView(BaseView[BEVViewConfig]):
                                 coord_frame="ego",
                                 timestamp=frame.timestamp,
                             ),
-                            xyz=sensor.point_cloud.xyz,
+                            xyz=xyz,
                             value=None,
                             color=None,
                             value_key=None,

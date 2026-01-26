@@ -37,6 +37,7 @@ def main() -> None:
     parser.add_argument("--grid-name", type=str, default="RA")
     parser.add_argument("--display", type=str, choices=["pixel", "polar"], default="pixel")
     parser.add_argument("--source-key", type=str, default="gt")
+    parser.add_argument("--bev-max-points", type=int, default=None)
     args = parser.parse_args()
 
     cfg = NuscenesArgs(
@@ -80,9 +81,19 @@ def main() -> None:
         )
         bev_spec = bev_view.build(
             frame,
-            BEVViewConfig(sensor_ids=["LIDAR_TOP", args.sensor_id], source_keys=[args.source_key]),
+            BEVViewConfig(
+                sensor_ids=["LIDAR_TOP", args.sensor_id],
+                source_keys=[args.source_key],
+                max_points=args.bev_max_points,
+            ),
         )
-        return render_plotly_grid(specs=[radar_spec, bev_spec], titles=["Radar Grid", "BEV"], rows=1, cols=2).fig
+        return render_plotly_grid(
+            specs=[radar_spec, bev_spec],
+            titles=["Radar Grid", "BEV"],
+            rows=1,
+            cols=2,
+            use_webgl=False,
+        ).fig
 
     player = PlotlySequencePlayer(
         get_frame=adapter.get_frame,

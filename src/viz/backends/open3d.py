@@ -90,7 +90,7 @@ class Open3DBackend(BaseBackend):
         else:
             view.set_front([0.0, -1.0, -0.3])
             view.set_up([0.0, 0.0, 1.0])
-            view.set_zoom(1.0)
+            view.set_zoom(0.5)
 
     def collect_points(self, geometries: list[o3d.geometry.Geometry]) -> np.ndarray | None:
         points = []

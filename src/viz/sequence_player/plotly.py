@@ -26,11 +26,14 @@ class PlotlySequencePlayer(BaseSequencePlayer):
             if base_fig is None:
                 base_fig = fig
 
-            shapes = getattr(fig.layout, "shapes", None) or []
+            layout_dict = fig.layout.to_plotly_json()
+            layout_dict.pop("updatemenus", None)
+            layout_dict.pop("sliders", None)
+
             frames.append(
                 go.Frame(
                     data=fig.data,
-                    layout=go.Layout(shapes=shapes),
+                    layout=go.Layout(**layout_dict),
                     name=str(idx),
                 )
             )
