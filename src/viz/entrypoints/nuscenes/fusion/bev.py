@@ -5,6 +5,7 @@ import textwrap
 
 from ....backends.plotly import PlotlyBackend
 from ....sequence_player.base import SequenceRange
+from ....sequence_player.napari import NapariSequencePlayer
 from ....sequence_player.open3d import Open3DSequencePlayer
 from ....sequence_player.plotly import PlotlySequencePlayer
 from ....views.bev import BEVView, BEVViewConfig
@@ -24,6 +25,7 @@ def main() -> None:
 
             Keybindings:
               Open3D: A/D step frames, Space toggles play
+              Napari: Left/Right arrows step frames
               Plotly: slider + Play/Pause buttons
             """
         ),
@@ -37,7 +39,7 @@ def main() -> None:
     parser.add_argument("--play-interval", type=float, default=0.2)
     parser.add_argument("--sensor-ids", type=str, default="LIDAR_TOP,RADAR_FRONT")
     parser.add_argument("--source-keys", type=str, default="gt")
-    parser.add_argument("--backend", type=str, choices=["open3d", "plotly"], default="open3d")
+    parser.add_argument("--backend", type=str, choices=["open3d", "plotly", "napari"], default="open3d")
     args = parser.parse_args()
 
     cfg = NuscenesArgs(
@@ -77,6 +79,18 @@ def main() -> None:
 
         fig = player.build_animation(build_figure)
         fig.show()
+    elif cfg.backend == "napari":
+        backend = build_backend(cfg.backend)
+        player = NapariSequencePlayer(
+            get_frame=adapter.get_frame,
+            build_spec=build_spec,
+            seq=seq,
+            play_interval_s=args.play_interval,
+        )
+        player.run(backend)
+        import napari
+
+        napari.run()
     else:
         backend = build_backend(cfg.backend)
         player = Open3DSequencePlayer(
