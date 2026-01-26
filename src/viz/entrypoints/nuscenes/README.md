@@ -77,6 +77,8 @@ python -m src.viz.entrypoints.nuscenes.single.lidar \
 python -m src.viz.entrypoints.nuscenes.fusion.bev \
   --dataset-path data/nuScenes \
   --index 0 \
+  --end-index 20 \
+  --play-interval 0.2 \
   --sensor-ids LIDAR_TOP,RADAR_FRONT \
   --source-keys gt \
   --backend open3d
@@ -133,7 +135,6 @@ python -m src.viz.entrypoints.nuscenes.multi_panel.four_panel \
   - `napari` is best for camera images and 2D overlays.
   - `plotly` works well for radar grids and multi-panel layouts.
 - Plotly multi-panel scripts currently render Plotly only.
-- `fusion.bev` remains single-frame for now; sequence controls are in the other entrypoints.
 
 ---
 
