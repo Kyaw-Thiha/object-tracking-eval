@@ -31,6 +31,17 @@ class PlotlyBackend(BaseBackend):
         self.add_layer_filters(fig, spec)
         return PlotlyHandle(fig=fig)
 
+    def update(self, handle: PlotlyHandle, spec: RenderSpec) -> None:
+        fig = handle.fig
+        fig.data = ()
+        fig.update_layout(shapes=[], updatemenus=[])
+        fig.update_layout(title=spec.title, yaxis=dict(autorange="reversed"))
+
+        for layer in spec.layers:
+            self.add_layer(fig, layer)
+
+        self.add_layer_filters(fig, spec)
+
     def add_layer(self, fig: go.Figure, layer: Any) -> None:
         if isinstance(layer, RasterLayer):
             if layer.display == "polar" and layer.axes and layer.bins:

@@ -30,6 +30,13 @@ class NapariBackend(BaseBackend):
             self.add_layer(viewer, layer)
         return NapariHandle(viewer=viewer)
 
+    def update(self, handle: NapariHandle, spec: RenderSpec) -> None:
+        viewer = handle.viewer
+        for layer in list(viewer.layers):
+            viewer.layers.remove(layer)
+        for layer in spec.layers:
+            self.add_layer(viewer, layer)
+
     def add_layer(self, viewer: Viewer, layer: Any) -> None:
         if isinstance(layer, RasterLayer):
             viewer.add_image(layer.data, name=layer.name)
