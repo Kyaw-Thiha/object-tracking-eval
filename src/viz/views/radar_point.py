@@ -9,7 +9,7 @@ from .base import BaseView
 from ..schema.render_spec import RenderSpec
 from ..schema.layers import LineLayer, PointLayer, TrackLayer
 from ..schema.base_layer import Layer, LayerMeta
-from ..geometry import box3d_bev_footprint
+from ..geometry import box3d_bev_footprint, xyz_to_radar_ra
 from ..palette import CLASS_COLORS, DEFAULT_COLOR
 from ..schema.base_layer import LayerStyle
 from ..transforms import invert_se3, transform_boxes3d
@@ -117,6 +117,8 @@ class RadarPointView(BaseView[RadarPointViewConfig]):
         radar = frame.sensors[cfg.sensor_id].data
         if radar.meta.ego_pose_in_world is None:
             return []
+        if radar.point_cloud is None or radar.point_cloud.xyz.size == 0:
+            return []
 
         T_ego_world = invert_se3(radar.meta.ego_pose_in_world)
         T_sensor_ego = invert_se3(radar.meta.sensor_pose_in_ego)
@@ -131,10 +133,26 @@ class RadarPointView(BaseView[RadarPointViewConfig]):
         yaws = np.array([b.yaw for b in boxes], dtype=float)
         class_ids = np.array([b.class_id for b in boxes], dtype=int)
         centers, sizes, yaws = transform_boxes3d(centers, sizes, yaws, T_sensor_world)
+        centers_all = centers
+        sizes_all = sizes
+        yaws_all = yaws
+        class_ids_all = class_ids
+
+        ra_points = xyz_to_radar_ra(radar.point_cloud.xyz)
+        a_min, a_max = np.percentile(ra_points[:, 1], [1, 99])
+        r_min, r_max = np.percentile(ra_points[:, 0], [1, 99])
 
         layers: list[Layer] = []
         if cfg.show_gt_centers:
-            colors = np.array([CLASS_COLORS.get(int(cid), DEFAULT_COLOR) for cid in class_ids], dtype=float)
+            colors = np.array([CLASS_COLORS.get(int(cid), DEFAULT_COLOR) for cid in class_ids_all], dtype=float)
+            ra_centers = xyz_to_radar_ra(centers_all)
+            mask = (ra_centers[:, 0] >= r_min) & (ra_centers[:, 0] <= r_max) & (ra_centers[:, 1] >= a_min) & (ra_centers[:, 1] <= a_max)
+            if np.any(mask):
+                centers = centers_all[mask]
+                colors = colors[mask]
+            else:
+                centers = np.empty((0, 3), dtype=centers_all.dtype)
+                colors = np.empty((0, 3), dtype=colors.dtype)
             layers.append(
                 PointLayer(
                     name=f"{cfg.sensor_id}.gt_centers",
@@ -154,13 +172,21 @@ class RadarPointView(BaseView[RadarPointViewConfig]):
             )
 
         if cfg.show_gt_footprints:
-            segments_by_class: dict[int, list[np.ndarray]] = {}
-            for center, size, yaw, class_id in zip(centers, sizes, yaws, class_ids):
+            segments_by_class: dict[int, list[np.ndarray]] = {cid: [] for cid in sorted(CLASS_COLORS.keys())}
+            for center, size, yaw, class_id in zip(centers_all, sizes_all, yaws_all, class_ids_all):
                 corners = box3d_bev_footprint(center, size, yaw)
+                ra_corners = xyz_to_radar_ra(np.column_stack([corners, np.zeros((corners.shape[0], 1))]))
+                in_bounds = (ra_corners[:, 0] >= r_min) & (ra_corners[:, 0] <= r_max) & (ra_corners[:, 1] >= a_min) & (ra_corners[:, 1] <= a_max)
+                if not np.any(in_bounds):
+                    continue
                 seg = np.stack([corners[:-1], corners[1:]], axis=1)
                 segments_by_class.setdefault(int(class_id), []).append(seg)
-            for class_id, segments in segments_by_class.items():
-                segments_np = np.concatenate(segments, axis=0)
+            for class_id in segments_by_class:
+                segments = segments_by_class[class_id]
+                if segments:
+                    segments_np = np.concatenate(segments, axis=0)
+                else:
+                    segments_np = np.empty((0, 2, 2), dtype=float)
                 color = CLASS_COLORS.get(int(class_id), DEFAULT_COLOR)
                 layers.append(
                     LineLayer(

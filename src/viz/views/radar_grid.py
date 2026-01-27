@@ -138,7 +138,7 @@ class RadarGridView(BaseView[RadarGridViewConfig]):
                 )
 
         if cfg.show_gt_footprints:
-            segments_by_class: dict[int, list[np.ndarray]] = {}
+            segments_by_class: dict[int, list[np.ndarray]] = {cid: [] for cid in sorted(CLASS_COLORS.keys())}
             for center, size, yaw, class_id in zip(centers, sizes, yaws, class_ids):
                 corners = box3d_bev_footprint(center, size, yaw)
                 ra = xyz_to_radar_ra(np.column_stack([corners, np.zeros((corners.shape[0], 1))]))
@@ -153,8 +153,12 @@ class RadarGridView(BaseView[RadarGridViewConfig]):
                 segments_by_class.setdefault(int(class_id), []).append(seg)
             if segments_by_class:
                 coord_frame = "grid:ra:polar" if cfg.display == "polar" else "grid:ra"
-                for class_id, segments in segments_by_class.items():
-                    segments_np = np.concatenate(segments, axis=0)
+                for class_id in segments_by_class:
+                    segments = segments_by_class[class_id]
+                    if segments:
+                        segments_np = np.concatenate(segments, axis=0)
+                    else:
+                        segments_np = np.empty((0, 2, 2), dtype=float)
                     color = CLASS_COLORS.get(int(class_id), DEFAULT_COLOR)
                     layers.append(
                         LineLayer(
