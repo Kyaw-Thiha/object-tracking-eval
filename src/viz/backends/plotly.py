@@ -10,7 +10,8 @@ import plotly.graph_objects as go
 
 from .base import BaseBackend
 from ..schema.render_spec import RenderSpec
-from ..schema.layers import RasterLayer, PointLayer, Box2DLayer, TextLayer, TrackLayer
+from ..schema.layers import RasterLayer, PointLayer, Box2DLayer, Box3DLayer, TextLayer, TrackLayer
+from ..geometry import box3d_bev_corners
 
 
 @dataclass
@@ -91,6 +92,20 @@ class PlotlyBackend(BaseBackend):
             for box in layer.xyxy:
                 x1, y1, x2, y2 = box.tolist()
                 fig.add_shape(type="rect", x0=x1, y0=y1, x1=x2, y1=y2, line=dict(width=layer.style.line_width))
+
+        elif isinstance(layer, Box3DLayer):
+            for center, size, yaw in zip(layer.centers, layer.sizes_lwh, layer.yaws):
+                xy = box3d_bev_corners(center, size, yaw)
+                fig.add_trace(
+                    go.Scatter(
+                        x=xy[:, 0],
+                        y=xy[:, 1],
+                        mode="lines",
+                        name=layer.name,
+                        showlegend=False,
+                        line=dict(width=layer.style.line_width),
+                    )
+                )
 
         elif isinstance(layer, TextLayer):
             fig.add_trace(

@@ -166,7 +166,12 @@ class Open3DBackend(BaseBackend):
             box.extent = size.astype(float)
             R = o3d.geometry.get_rotation_matrix_from_xyz([0.0, 0.0, float(yaw)])
             box.R = R
-            geoms.append(box)
+            line_set = o3d.geometry.LineSet.create_from_oriented_bounding_box(box)
+            if layer.style.color is not None:
+                line_set.paint_uniform_color(list(layer.style.color))
+            else:
+                line_set.paint_uniform_color([0.1, 0.9, 0.2])
+            geoms.append(line_set)
         return geoms
 
     def tracks_to_geometry(self, layer: TrackLayer) -> list[o3d.geometry.Geometry]:

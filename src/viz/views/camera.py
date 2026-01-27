@@ -8,6 +8,7 @@ from ..schema.render_spec import RenderSpec
 from ..schema.layers import RasterLayer, Box2DLayer, TrackLayer, TextLayer
 from ..schema.base_layer import Layer, LayerMeta
 from ..transforms import invert_se3, project_points_to_image, transform_points
+from ..geometry import box3d_to_box2d, ego_pose_in_world_from_frame
 from ...data.schema.frame import Frame
 from ...data.schema.image import ImageSensorFrame
 from ...data.schema.overlay import Box2D, Track
@@ -66,15 +67,65 @@ class CameraView(BaseView[CameraViewConfig]):
 
     def build_boxes2d_layer(self, frame: Frame, cfg: CameraViewConfig) -> Box2DLayer | None:
         """Create the 2D box overlay layer if available."""
-        if not (cfg.show_boxes and frame.overlays and cfg.source_key in frame.overlays.boxes2D):
+        if not cfg.show_boxes or not frame.overlays:
             return None
 
         boxes = []
-        for box in frame.overlays.boxes2D[cfg.source_key]:
-            if isinstance(box, Box2D) and box.meta.sensor_id == cfg.sensor_id:
-                boxes.append(box)
+        if cfg.source_key in frame.overlays.boxes2D:
+            for box in frame.overlays.boxes2D[cfg.source_key]:
+                if isinstance(box, Box2D) and box.meta.sensor_id == cfg.sensor_id:
+                    boxes.append(box)
         if len(boxes) == 0:
-            return None
+            if not (frame.overlays and cfg.source_key in frame.overlays.boxes3D):
+                return None
+
+            sensor = frame.sensors[cfg.sensor_id].data
+            assert isinstance(sensor, ImageSensorFrame)
+
+            ego_pose_in_world = ego_pose_in_world_from_frame(frame)
+            if ego_pose_in_world is None:
+                return None
+
+            T_ego_world = invert_se3(ego_pose_in_world)
+            T_sensor_ego = invert_se3(sensor.meta.sensor_pose_in_ego)
+            T_cam_world = T_sensor_ego @ T_ego_world
+
+            image_shape = (int(sensor.image.shape[0]), int(sensor.image.shape[1]))
+            xyxy_list = []
+            labels = []
+            for b in frame.overlays.boxes3D[cfg.source_key]:
+                if b.meta.coord_frame != "world":
+                    continue
+                rect = box3d_to_box2d(
+                    center_xyz=b.center_xyz,
+                    size_lwh=b.size_lwh,
+                    yaw=b.yaw,
+                    T_cam_world=T_cam_world,
+                    intrinsics=sensor.meta.intrinsics,
+                    image_shape=image_shape,
+                )
+                if rect is None:
+                    continue
+                xyxy_list.append(rect)
+                labels.append(f"id={b.track_id}" if b.track_id is not None else "")
+
+            if not xyxy_list:
+                return None
+
+            xyxy = np.array(xyxy_list, dtype=np.float32)
+            return Box2DLayer(
+                name=f"{cfg.sensor_id}.boxes2d",
+                meta=LayerMeta(
+                    source=cfg.source_key,
+                    sensor_id=cfg.sensor_id,
+                    kind="bbox2d",
+                    coord_frame="pixel",
+                    timestamp=frame.timestamp,
+                ),
+                xyxy=xyxy,
+                labels=labels if cfg.show_labels else None,
+                class_ids=None,
+            )
 
         xyxy = np.stack([b.xyxy for b in boxes], axis=0)
         labels = [f"id={b.track_id}" if b.track_id is not None else "" for b in boxes]

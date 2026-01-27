@@ -9,6 +9,7 @@ from .base import BaseView
 from ..schema.render_spec import RenderSpec
 from ..schema.layers import PointLayer, Box3DLayer, TrackLayer
 from ..schema.base_layer import LayerMeta
+from ..transforms import invert_se3, transform_boxes3d
 from ...data.schema.frame import Frame
 from ...data.schema.overlay import Track
 
@@ -82,9 +83,37 @@ class LidarView(BaseView[LidarViewConfig]):
         if not boxes:
             return None
 
-        centers = np.stack([b.center_xyz for b in boxes], axis=0)
-        sizes = np.stack([b.size_lwh for b in boxes], axis=0)
-        yaws = np.array([b.yaw for b in boxes], dtype=float)
+        boxes_world = [b for b in boxes if b.meta.coord_frame == "world"]
+        boxes_sensor = [b for b in boxes if b.meta.coord_frame == lidar.meta.frame]
+
+        centers_list = []
+        sizes_list = []
+        yaws_list = []
+
+        if boxes_world and lidar.meta.ego_pose_in_world is not None:
+            T_ego_world = invert_se3(lidar.meta.ego_pose_in_world)
+            T_sensor_ego = invert_se3(lidar.meta.sensor_pose_in_ego)
+            T_sensor_world = T_sensor_ego @ T_ego_world
+
+            centers = np.stack([b.center_xyz for b in boxes_world], axis=0)
+            sizes = np.stack([b.size_lwh for b in boxes_world], axis=0)
+            yaws = np.array([b.yaw for b in boxes_world], dtype=float)
+            centers, sizes, yaws = transform_boxes3d(centers, sizes, yaws, T_sensor_world)
+            centers_list.append(centers)
+            sizes_list.append(sizes)
+            yaws_list.append(yaws)
+
+        if boxes_sensor:
+            centers_list.append(np.stack([b.center_xyz for b in boxes_sensor], axis=0))
+            sizes_list.append(np.stack([b.size_lwh for b in boxes_sensor], axis=0))
+            yaws_list.append(np.array([b.yaw for b in boxes_sensor], dtype=float))
+
+        if not centers_list:
+            return None
+
+        centers = np.concatenate(centers_list, axis=0)
+        sizes = np.concatenate(sizes_list, axis=0)
+        yaws = np.concatenate(yaws_list, axis=0)
 
         return Box3DLayer(
             name=f"{cfg.sensor_id}.boxes3d",
