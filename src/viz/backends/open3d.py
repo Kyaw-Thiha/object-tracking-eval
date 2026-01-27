@@ -117,8 +117,12 @@ class Open3DBackend(BaseBackend):
         import open3d as o3d
 
         if isinstance(layer, PointLayer):
+            if layer.xyz.size == 0:
+                return None
             return self.points_to_geometry(layer)
         if isinstance(layer, LineLayer):
+            if layer.segments.size == 0:
+                return None
             return self.lines_to_geometry(layer)
         if isinstance(layer, Box3DLayer):
             return self.boxes3d_to_geometry(layer)
