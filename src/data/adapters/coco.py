@@ -141,7 +141,7 @@ class CocoBaseAdapter(BaseAdapter):
             xyxy = np.array([x, y, x + w, y + h], dtype=np.float32)
 
             meta = OverlayMeta(
-                coord_frame="sensor:cam",
+                coord_frame="pixel",
                 source="gt",
                 timestamp=info["timestamp"],
                 sensor_id="cam",

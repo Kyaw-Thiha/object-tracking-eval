@@ -9,7 +9,7 @@ from ....sequence_player.plotly import PlotlySequencePlayer
 from ....backends.napari import NapariBackend
 from ....backends.plotly import PlotlyBackend
 from ....views.camera import CameraView, CameraViewConfig
-from ....data.adapters.camel import CamelAdapter
+from .....data.adapters.camel import CamelAdapter
 
 
 def main() -> None:

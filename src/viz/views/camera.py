@@ -135,13 +135,14 @@ class CameraView(BaseView[CameraViewConfig]):
         labels = [f"id={b.track_id}" if b.track_id is not None else "" for b in boxes]
         class_ids = np.array([b.class_id for b in boxes], dtype=int) if boxes else None
 
+        coord_frame = boxes[0].meta.coord_frame if boxes else f"sensor:{cfg.sensor_id}"
         return Box2DLayer(
             name=f"{cfg.sensor_id}.boxes2d",
             meta=LayerMeta(
                 source=cfg.source_key,
                 sensor_id=cfg.sensor_id,
                 kind="bbox2d",
-                coord_frame=f"sensor:{cfg.sensor_id}",
+                coord_frame=coord_frame,
                 timestamp=frame.timestamp,
             ),
             xyxy=xyxy,
