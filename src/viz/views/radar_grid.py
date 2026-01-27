@@ -70,15 +70,13 @@ class RadarGridView(BaseView[RadarGridViewConfig]):
 
     def build_gt_layers(self, frame: Frame, cfg: RadarGridViewConfig) -> list[Layer]:
         """Create GT box overlays in RA grid space."""
-        if cfg.grid_name != "RA":
-            return []
         if not (frame.overlays and cfg.source_key in frame.overlays.boxes3D):
             return []
         if not (cfg.show_gt_centers or cfg.show_gt_footprints):
             return []
 
         radar = frame.sensors[cfg.sensor_id].data
-        if radar.grids is None or "RA" not in radar.grids:
+        if radar.grids is None or cfg.grid_name not in radar.grids:
             return []
         if radar.meta.ego_pose_in_world is None:
             return []
@@ -97,36 +95,120 @@ class RadarGridView(BaseView[RadarGridViewConfig]):
         class_ids = np.array([b.class_id for b in boxes], dtype=int)
         centers, sizes, yaws = transform_boxes3d(centers, sizes, yaws, T_sensor_world)
 
-        grid = radar.grids["RA"]
+        grid = radar.grids[cfg.grid_name]
         range_bins = grid.bins.get("range") if grid.bins else None
-        azimuth_bins = grid.bins.get("azimuth") if grid.bins else None
-        if range_bins is None or azimuth_bins is None:
+        if range_bins is None:
             return []
         r_min, r_max = float(range_bins.min()), float(range_bins.max())
-        a_min, a_max = float(azimuth_bins.min()), float(azimuth_bins.max())
 
         layers: list[Layer] = []
-        if cfg.show_gt_centers:
-            ra = xyz_to_radar_ra(centers)
-            mask = (ra[:, 0] >= r_min) & (ra[:, 0] <= r_max) & (ra[:, 1] >= a_min) & (ra[:, 1] <= a_max)
-            ra = ra[mask]
-            class_ids_ra = class_ids[mask]
-            if ra.size > 0:
-                colors = np.array([CLASS_COLORS.get(int(cid), DEFAULT_COLOR) for cid in class_ids_ra], dtype=float)
-                if cfg.display == "polar":
-                    coords = ra
-                    coord_frame = "grid:ra:polar"
-                else:
-                    coords = np.stack([ra[:, 1], ra[:, 0]], axis=1)
-                    coord_frame = "grid:ra"
+        if cfg.grid_name == "RA":
+            azimuth_bins = grid.bins.get("azimuth") if grid.bins else None
+            if azimuth_bins is None:
+                return layers
+            a_min, a_max = float(azimuth_bins.min()), float(azimuth_bins.max())
+
+            if cfg.show_gt_centers:
+                ra = xyz_to_radar_ra(centers)
+                mask = (ra[:, 0] >= r_min) & (ra[:, 0] <= r_max) & (ra[:, 1] >= a_min) & (ra[:, 1] <= a_max)
+                ra = ra[mask]
+                class_ids_ra = class_ids[mask]
+                if ra.size > 0:
+                    colors = np.array([CLASS_COLORS.get(int(cid), DEFAULT_COLOR) for cid in class_ids_ra], dtype=float)
+                    if cfg.display == "polar":
+                        coords = ra
+                        coord_frame = "grid:ra:polar"
+                    else:
+                        coords = np.stack([ra[:, 1], ra[:, 0]], axis=1)
+                        coord_frame = "grid:ra"
+                    layers.append(
+                        PointLayer(
+                            name=f"{cfg.sensor_id}.gt_centers.ra",
+                            meta=LayerMeta(
+                                source="gt",
+                                sensor_id=cfg.sensor_id,
+                                kind="gt_center",
+                                coord_frame=coord_frame,
+                                timestamp=frame.timestamp,
+                            ),
+                            xyz=coords,
+                            value=None,
+                            color=colors,
+                            value_key=None,
+                            units=None,
+                        )
+                    )
+
+            if cfg.show_gt_footprints:
+                segments_by_class: dict[int, list[np.ndarray]] = {cid: [] for cid in sorted(CLASS_COLORS.keys())}
+                for center, size, yaw, class_id in zip(centers, sizes, yaws, class_ids):
+                    corners = box3d_bev_footprint(center, size, yaw)
+                    ra = xyz_to_radar_ra(np.column_stack([corners, np.zeros((corners.shape[0], 1))]))
+                    in_bounds = (ra[:, 0] >= r_min) & (ra[:, 0] <= r_max) & (ra[:, 1] >= a_min) & (ra[:, 1] <= a_max)
+                    if not np.all(in_bounds):
+                        continue
+                    if cfg.display == "polar":
+                        seg = np.stack([ra[:-1], ra[1:]], axis=1)
+                    else:
+                        seg = np.stack([ra[:-1], ra[1:]], axis=1)
+                        seg = seg[:, :, [1, 0]]
+                    segments_by_class.setdefault(int(class_id), []).append(seg)
+                if segments_by_class:
+                    coord_frame = "grid:ra:polar" if cfg.display == "polar" else "grid:ra"
+                    for class_id in segments_by_class:
+                        segments = segments_by_class[class_id]
+                        if segments:
+                            segments_np = np.concatenate(segments, axis=0)
+                        else:
+                            segments_np = np.empty((0, 2, 2), dtype=float)
+                        color = CLASS_COLORS.get(int(class_id), DEFAULT_COLOR)
+                        layers.append(
+                            LineLayer(
+                                name=f"{cfg.sensor_id}.gt_boxes.ra.{class_id}",
+                                meta=LayerMeta(
+                                    source="gt",
+                                    sensor_id=cfg.sensor_id,
+                                    kind="gt_box",
+                                    coord_frame=coord_frame,
+                                    timestamp=frame.timestamp,
+                                ),
+                                segments=segments_np,
+                                style=LayerStyle(color=color, line_width=1.5),
+                            )
+                        )
+
+            return layers
+
+        if cfg.grid_name == "RD":
+            doppler_bins = grid.bins.get("doppler") if grid.bins else None
+            if doppler_bins is None:
+                return layers
+            d_min, d_max = float(doppler_bins.min()), float(doppler_bins.max())
+
+            velocities = []
+            centers_valid = []
+            class_ids_valid = []
+            for center, class_id, box in zip(centers, class_ids, boxes):
+                if box.velocity_xyz is None:
+                    continue
+                vel_world = box.velocity_xyz
+                if radar.meta.ego_velocity_in_world is not None:
+                    vel_world = vel_world - radar.meta.ego_velocity_in_world
+                centers_valid.append(center)
+                class_ids_valid.append(class_id)
+                velocities.append(vel_world)
+
+            if not centers_valid:
+                coords = np.empty((0, 2), dtype=float)
+                colors = np.empty((0, 3), dtype=float)
                 layers.append(
                     PointLayer(
-                        name=f"{cfg.sensor_id}.gt_centers.ra",
+                        name=f"{cfg.sensor_id}.gt_centers.rd",
                         meta=LayerMeta(
                             source="gt",
                             sensor_id=cfg.sensor_id,
                             kind="gt_center",
-                            coord_frame=coord_frame,
+                            coord_frame="grid:rd",
                             timestamp=frame.timestamp,
                         ),
                         xyz=coords,
@@ -136,43 +218,48 @@ class RadarGridView(BaseView[RadarGridViewConfig]):
                         units=None,
                     )
                 )
+                return layers
 
-        if cfg.show_gt_footprints:
-            segments_by_class: dict[int, list[np.ndarray]] = {cid: [] for cid in sorted(CLASS_COLORS.keys())}
-            for center, size, yaw, class_id in zip(centers, sizes, yaws, class_ids):
-                corners = box3d_bev_footprint(center, size, yaw)
-                ra = xyz_to_radar_ra(np.column_stack([corners, np.zeros((corners.shape[0], 1))]))
-                in_bounds = (ra[:, 0] >= r_min) & (ra[:, 0] <= r_max) & (ra[:, 1] >= a_min) & (ra[:, 1] <= a_max)
-                if not np.all(in_bounds):
-                    continue
-                if cfg.display == "polar":
-                    seg = np.stack([ra[:-1], ra[1:]], axis=1)
-                else:
-                    seg = np.stack([ra[:-1], ra[1:]], axis=1)
-                    seg = seg[:, :, [1, 0]]
-                segments_by_class.setdefault(int(class_id), []).append(seg)
-            if segments_by_class:
-                coord_frame = "grid:ra:polar" if cfg.display == "polar" else "grid:ra"
-                for class_id in segments_by_class:
-                    segments = segments_by_class[class_id]
-                    if segments:
-                        segments_np = np.concatenate(segments, axis=0)
-                    else:
-                        segments_np = np.empty((0, 2, 2), dtype=float)
-                    color = CLASS_COLORS.get(int(class_id), DEFAULT_COLOR)
-                    layers.append(
-                        LineLayer(
-                            name=f"{cfg.sensor_id}.gt_boxes.ra.{class_id}",
-                            meta=LayerMeta(
-                                source="gt",
-                                sensor_id=cfg.sensor_id,
-                                kind="gt_box",
-                                coord_frame=coord_frame,
-                                timestamp=frame.timestamp,
-                            ),
-                            segments=segments_np,
-                            style=LayerStyle(color=color, line_width=1.5),
-                        )
-                    )
+            centers_valid = np.stack(centers_valid, axis=0)
+            class_ids_valid = np.array(class_ids_valid, dtype=int)
+            velocities_world = np.stack(velocities, axis=0)
+
+            R = T_sensor_world[:3, :3]
+            velocities_sensor = (R @ velocities_world.T).T
+
+            xy = centers_valid[:, :2]
+            ranges = np.linalg.norm(xy, axis=1) + 1e-6
+            doppler = (velocities_sensor[:, 0] * xy[:, 0] + velocities_sensor[:, 1] * xy[:, 1]) / ranges
+
+            mask = (ranges >= r_min) & (ranges <= r_max) & (doppler >= d_min) & (doppler <= d_max)
+            if np.any(mask):
+                ranges = ranges[mask]
+                doppler = doppler[mask]
+                class_ids_valid = class_ids_valid[mask]
+                colors = np.array([CLASS_COLORS.get(int(cid), DEFAULT_COLOR) for cid in class_ids_valid], dtype=float)
+                coords = np.stack([doppler, ranges], axis=1)
+            else:
+                coords = np.empty((0, 2), dtype=float)
+                colors = np.empty((0, 3), dtype=float)
+
+            layers.append(
+                PointLayer(
+                    name=f"{cfg.sensor_id}.gt_centers.rd",
+                    meta=LayerMeta(
+                        source="gt",
+                        sensor_id=cfg.sensor_id,
+                        kind="gt_center",
+                        coord_frame="grid:rd",
+                        timestamp=frame.timestamp,
+                    ),
+                    xyz=coords,
+                    value=None,
+                    color=colors,
+                    value_key=None,
+                    units=None,
+                )
+            )
+
+            return layers
 
         return layers

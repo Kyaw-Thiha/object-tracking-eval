@@ -224,7 +224,23 @@ class NuScenesAdapter(BaseAdapter):
                 sensor_pose_in_ego = se3_from_quaternion(calibrated_sensor["rotation"], calibrated_sensor["translation"])
                 ego_pose_in_world = se3_from_quaternion(ego["rotation"], ego["translation"])
 
-                meta = RadarMeta(frame=f"sensor:{sensor_id}", sensor_pose_in_ego=sensor_pose_in_ego, ego_pose_in_world=ego_pose_in_world)
+                ego_velocity_in_world = None
+                prev_token = sample_data.get("prev")
+                if prev_token:
+                    prev_sample_data = self.nusc.get("sample_data", prev_token)
+                    prev_ego = self.nusc.get("ego_pose", prev_sample_data["ego_pose_token"])
+                    dt = (sample_data["timestamp"] - prev_sample_data["timestamp"]) * 1e-6
+                    if dt > 0:
+                        prev_t = np.array(prev_ego["translation"], dtype=np.float32)
+                        curr_t = np.array(ego["translation"], dtype=np.float32)
+                        ego_velocity_in_world = (curr_t - prev_t) / dt
+
+                meta = RadarMeta(
+                    frame=f"sensor:{sensor_id}",
+                    sensor_pose_in_ego=sensor_pose_in_ego,
+                    ego_pose_in_world=ego_pose_in_world,
+                    ego_velocity_in_world=ego_velocity_in_world,
+                )
 
                 grids = None
                 if self.synthesize_radar_grids:
@@ -261,6 +277,13 @@ class NuScenesAdapter(BaseAdapter):
             if class_id is None:
                 continue
 
+            velocity = self.nusc.box_velocity(ann_token)
+            velocity_xyz = None
+            if velocity is not None:
+                velocity = np.array(velocity, dtype=np.float32)
+                if np.all(np.isfinite(velocity)):
+                    velocity_xyz = velocity
+
             meta = OverlayMeta(coord_frame="world", source="gt", timestamp=info["timestamp"], sensor_id=None)
             boxes.append(
                 Box3D(
@@ -271,7 +294,7 @@ class NuScenesAdapter(BaseAdapter):
                     class_id=class_id,
                     confidence=None,
                     track_id=self.instance_id_map[ann["instance_token"]],
-                    velocity_xyz=None,
+                    velocity_xyz=velocity_xyz,
                 )
             )
 

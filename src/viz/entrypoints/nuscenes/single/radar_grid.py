@@ -43,6 +43,7 @@ def main() -> None:
     parser.add_argument("--display", type=str, choices=["pixel", "polar"], default="pixel")
     parser.add_argument("--show-gt-centers", action="store_true")
     parser.add_argument("--show-gt-footprints", action="store_true")
+    parser.add_argument("--use-webgl", action="store_true", help="Enable WebGL scatter for faster playback.")
     parser.add_argument("--backend", type=str, choices=["plotly", "napari"], default="plotly")
     args = parser.parse_args()
 
@@ -76,7 +77,8 @@ def main() -> None:
         )
 
     if cfg.backend == "plotly":
-        plotly_backend = PlotlyBackend()
+        use_webgl = args.use_webgl and not (args.show_gt_centers or args.show_gt_footprints)
+        plotly_backend = PlotlyBackend(use_webgl=use_webgl)
         player = PlotlySequencePlayer(
             get_frame=adapter.get_frame,
             build_spec=build_spec,

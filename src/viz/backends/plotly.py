@@ -64,7 +64,7 @@ class PlotlyBackend(BaseBackend):
             return palette.get(int(class_id), DEFAULT_COLOR)
 
         if isinstance(layer, RasterLayer):
-            if layer.display == "polar" and layer.axes and layer.bins:
+            if layer.display == "polar" and layer.axes and layer.bins and "azimuth" in layer.axes:
                 self.add_raster_polar(fig, layer)
             elif layer.axes and layer.bins:
                 x = layer.bins[layer.axes[1]]
