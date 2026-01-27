@@ -39,6 +39,8 @@ def main() -> None:
     parser.add_argument("--source-key", type=str, default="gt")
     parser.add_argument("--value-key", type=str, default=None)
     parser.add_argument("--units", type=str, default=None)
+    parser.add_argument("--show-gt-centers", action="store_true")
+    parser.add_argument("--show-gt-footprints", action="store_true")
     parser.add_argument("--backend", type=str, choices=["plotly", "napari"], default="plotly")
     args = parser.parse_args()
 
@@ -66,6 +68,8 @@ def main() -> None:
                 source_key=cfg.source_key,
                 value_key=args.value_key,
                 units=args.units,
+                show_gt_centers=args.show_gt_centers,
+                show_gt_footprints=args.show_gt_footprints,
             ),
         )
 

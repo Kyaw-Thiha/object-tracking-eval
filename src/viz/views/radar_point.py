@@ -7,8 +7,10 @@ from ...data.schema.radar import RadarSensorFrame
 
 from .base import BaseView
 from ..schema.render_spec import RenderSpec
-from ..schema.layers import PointLayer, TrackLayer
+from ..schema.layers import LineLayer, PointLayer, TrackLayer
 from ..schema.base_layer import Layer, LayerMeta
+from ..geometry import box3d_bev_footprint
+from ..transforms import invert_se3, transform_boxes3d
 from ...data.schema.frame import Frame
 from ...data.schema.overlay import Track
 
@@ -22,6 +24,8 @@ class RadarPointViewConfig:
     value_key: str | None = None
     units: str | None = None
     show_tracks: bool = True
+    show_gt_centers: bool = False
+    show_gt_footprints: bool = False
 
 
 class RadarPointView(BaseView[RadarPointViewConfig]):
@@ -32,6 +36,7 @@ class RadarPointView(BaseView[RadarPointViewConfig]):
     def build(self, frame: Frame, cfg: RadarPointViewConfig) -> RenderSpec:
         """Assemble the radar point view layers for a frame."""
         layers: list[Layer] = [self.build_point_layer(frame, cfg)]
+        layers.extend(self.build_gt_layers(frame, cfg))
 
         track_layer = self.build_tracks_layer(frame, cfg)
         if track_layer is not None:
@@ -99,3 +104,70 @@ class RadarPointView(BaseView[RadarPointViewConfig]):
             history_len=None,
             velocity_units=None,
         )
+
+    def build_gt_layers(self, frame: Frame, cfg: RadarPointViewConfig) -> list[Layer]:
+        """Create GT box overlays in radar frame."""
+        if not (frame.overlays and cfg.source_key in frame.overlays.boxes3D):
+            return []
+        if not (cfg.show_gt_centers or cfg.show_gt_footprints):
+            return []
+
+        radar = frame.sensors[cfg.sensor_id].data
+        if radar.meta.ego_pose_in_world is None:
+            return []
+
+        T_ego_world = invert_se3(radar.meta.ego_pose_in_world)
+        T_sensor_ego = invert_se3(radar.meta.sensor_pose_in_ego)
+        T_sensor_world = T_sensor_ego @ T_ego_world
+
+        boxes = [b for b in frame.overlays.boxes3D[cfg.source_key] if b.meta.coord_frame == "world"]
+        if not boxes:
+            return []
+
+        centers = np.stack([b.center_xyz for b in boxes], axis=0)
+        sizes = np.stack([b.size_lwh for b in boxes], axis=0)
+        yaws = np.array([b.yaw for b in boxes], dtype=float)
+        centers, sizes, yaws = transform_boxes3d(centers, sizes, yaws, T_sensor_world)
+
+        layers: list[Layer] = []
+        if cfg.show_gt_centers:
+            layers.append(
+                PointLayer(
+                    name=f"{cfg.sensor_id}.gt_centers",
+                    meta=LayerMeta(
+                        source="gt",
+                        sensor_id=cfg.sensor_id,
+                        kind="gt_center",
+                        coord_frame=radar.meta.frame,
+                        timestamp=frame.timestamp,
+                    ),
+                    xyz=centers,
+                    value=None,
+                    color=None,
+                    value_key=None,
+                    units=None,
+                )
+            )
+
+        if cfg.show_gt_footprints:
+            segments = []
+            for center, size, yaw in zip(centers, sizes, yaws):
+                corners = box3d_bev_footprint(center, size, yaw)
+                segments.append(np.stack([corners[:-1], corners[1:]], axis=1))
+            if segments:
+                segments_np = np.concatenate(segments, axis=0)
+                layers.append(
+                    LineLayer(
+                        name=f"{cfg.sensor_id}.gt_boxes",
+                        meta=LayerMeta(
+                            source="gt",
+                            sensor_id=cfg.sensor_id,
+                            kind="gt_box",
+                            coord_frame=radar.meta.frame,
+                            timestamp=frame.timestamp,
+                        ),
+                        segments=segments_np,
+                    )
+                )
+
+        return layers

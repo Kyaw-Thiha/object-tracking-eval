@@ -8,6 +8,9 @@ Quick commands to visualize NuScenes with the viz stack.
   - `--index <int>`
   - `--scene <scene-name> --frame-id <int>`
 - `--source-key`: overlay source (default: `gt`)
+- Radar GT overlays:
+  - `--show-gt-centers`: overlay GT box centers (radar frame / RA grid)
+  - `--show-gt-footprints`: overlay GT box footprints (radar frame / RA grid)
 - Sequence controls:
   - `--end-index <int>`: inclusive end index (defaults to last frame)
   - `--step <int>`: stride between frames (default: 1)
@@ -42,6 +45,8 @@ python -m src.viz.entrypoints.nuscenes.single.radar_grid \
   --sensor-id RADAR_FRONT \
   --grid-name RA \
   --display polar \
+  --show-gt-centers \
+  --show-gt-footprints \
   --backend plotly
 ```
 
@@ -54,6 +59,8 @@ python -m src.viz.entrypoints.nuscenes.single.radar_point \
   --play-interval 0.2 \
   --sensor-id RADAR_FRONT \
   --value-key doppler \
+  --show-gt-centers \
+  --show-gt-footprints \
   --backend plotly
 ```
 
@@ -113,6 +120,8 @@ python -m src.viz.entrypoints.nuscenes.multi_panel.radar_bev \
   --grid-name RA \
   --display pixel \
   --source-key gt \
+  --show-gt-centers \
+  --show-gt-footprints \
   --bev-max-points 20000 \
   --use-webgl
 ```
@@ -129,6 +138,8 @@ python -m src.viz.entrypoints.nuscenes.multi_panel.four_panel \
   --grid-name RA \
   --display pixel \
   --source-key gt \
+  --show-gt-centers \
+  --show-gt-footprints \
   --bev-max-points 20000 \
   --use-webgl
 ```
@@ -142,6 +153,7 @@ python -m src.viz.entrypoints.nuscenes.multi_panel.four_panel \
   - `plotly` works well for radar grids and multi-panel layouts.
 - Plotly multi-panel scripts currently render Plotly only.
 - Multi-panel speed tips: `--bev-max-points` reduces point count; `--use-webgl` can improve performance but may drop BEV points during animation on some systems.
+- Radar GT overlays are supported for RA grids; RD requires GT doppler to be available.
 
 ---
 

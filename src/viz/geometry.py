@@ -76,6 +76,38 @@ def box3d_to_box2d(
     return (x1, y1, x2, y2)
 
 
+def xyz_to_radar_ra(xyz: np.ndarray) -> np.ndarray:
+    """
+    Convert radar-frame xyz to (range, azimuth) in meters/radians.
+    Returns (N,2) array [range, azimuth].
+    """
+    x = xyz[:, 0]
+    y = xyz[:, 1]
+    rng = np.sqrt(x**2 + y**2)
+    az = np.arctan2(y, x)
+    return np.stack([rng, az], axis=1)
+
+
+def box3d_bev_footprint(center_xyz: np.ndarray, size_lwh: np.ndarray, yaw: float) -> np.ndarray:
+    """
+    Return 4 BEV corners (xy) for a 3D box in its coord frame.
+    """
+    l, w, _ = size_lwh.tolist()
+    corners = np.array(
+        [
+            [l / 2, w / 2],
+            [l / 2, -w / 2],
+            [-l / 2, -w / 2],
+            [-l / 2, w / 2],
+            [l / 2, w / 2],
+        ],
+        dtype=np.float32,
+    )
+    c, s = np.cos(yaw), np.sin(yaw)
+    R = np.array([[c, -s], [s, c]], dtype=np.float32)
+    return (R @ corners.T).T + center_xyz[:2][None, :]
+
+
 def ego_pose_in_world_from_frame(frame: Frame) -> np.ndarray | None:
     """
     Return the first available ego_pose_in_world from any sensor meta in a frame.
