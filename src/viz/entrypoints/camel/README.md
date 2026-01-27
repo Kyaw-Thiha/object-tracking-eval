@@ -11,6 +11,9 @@ Quick commands to visualize CAMEL with the viz stack.
   - `--step <int>`: stride between frames (default: 1)
   - `--play-interval <float>`: seconds per frame when playing (default: 0.2)
 - `--source-key`: overlay source (default: `gt`)
+- Predictions overlay:
+  - `--pred-dir`: directory with MOT-style `*.txt` outputs (optional)
+  - `--pred-score-threshold`: score threshold for predictions (default: `0.3`)
 - Keybindings:
   - `napari`: Left/Right arrows step frames
   - `plotly`: slider + Play/Pause buttons
@@ -31,6 +34,19 @@ python -m src.viz.entrypoints.camel.single.camera \
   --backend napari
 ```
 
+### Camera (GT + Predictions)
+```bash
+python -m src.viz.entrypoints.camel.single.camera \
+  --dataset-path data/camel_dataset \
+  --ann-file annotations/test_cocoformat_half.json \
+  --split test_half \
+  --index 0 \
+  --end-index 200 \
+  --pred-dir outputs/camel_prob_yolox_probabilistic_byte_half_old \
+  --pred-score-threshold 0.7 \
+  --backend napari
+```
+
 ---
 
 ## Notes
@@ -39,3 +55,5 @@ python -m src.viz.entrypoints.camel.single.camera \
   - `plotly` works well for quick interactive playback.
 - If a window does not appear, ensure the backend is installed (`napari`, `plotly`).
 - If CAMEL data is not found, double-check `--dataset-path`, `--ann-file`, and `--split`.
+- Prediction file format: one file per sequence (e.g., `s13.txt`) with rows
+  `frame_id,track_id,x,y,w,h,score,class_id,visibility`.
