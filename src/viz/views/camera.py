@@ -9,7 +9,7 @@ from ..schema.layers import RasterLayer, Box2DLayer, TrackLayer, TextLayer
 from ..schema.base_layer import Layer, LayerMeta, LayerStyle
 from ..transforms import invert_se3, project_points_to_image, transform_points
 from ..geometry import box3d_to_box2d, ego_pose_in_world_from_frame
-from ..palette import CLASS_COLORS
+from ..palette import palette_for_dataset
 from ...data.schema.frame import Frame
 from ...data.schema.image import ImageSensorFrame
 from ...data.schema.overlay import Box2D, Track
@@ -116,6 +116,7 @@ class CameraView(BaseView[CameraViewConfig]):
                 return None
 
             xyxy = np.array(xyxy_list, dtype=np.float32)
+            palette = palette_for_dataset(frame.meta.dataset if frame.meta else None)
             return Box2DLayer(
                 name=f"{cfg.sensor_id}.boxes2d",
                 meta=LayerMeta(
@@ -128,7 +129,7 @@ class CameraView(BaseView[CameraViewConfig]):
                 xyxy=xyxy,
                 labels=labels if cfg.show_labels else None,
                 class_ids=np.array(class_ids, dtype=int) if class_ids else None,
-                style=LayerStyle(palette=CLASS_COLORS, line_width=1.5),
+                style=LayerStyle(palette=palette, line_width=1.5),
             )
 
         xyxy = np.stack([b.xyxy for b in boxes], axis=0)
@@ -136,6 +137,7 @@ class CameraView(BaseView[CameraViewConfig]):
         class_ids = np.array([b.class_id for b in boxes], dtype=int) if boxes else None
 
         coord_frame = boxes[0].meta.coord_frame if boxes else f"sensor:{cfg.sensor_id}"
+        palette = palette_for_dataset(frame.meta.dataset if frame.meta else None)
         return Box2DLayer(
             name=f"{cfg.sensor_id}.boxes2d",
             meta=LayerMeta(
@@ -148,7 +150,7 @@ class CameraView(BaseView[CameraViewConfig]):
             xyxy=xyxy,
             labels=labels if cfg.show_labels else None,
             class_ids=class_ids,
-            style=LayerStyle(palette=CLASS_COLORS, line_width=1.5),
+            style=LayerStyle(palette=palette, line_width=1.5),
         )
 
     def build_tracks_layers(self, frame: Frame, cfg: CameraViewConfig) -> list[Layer]:
