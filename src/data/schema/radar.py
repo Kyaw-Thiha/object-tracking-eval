@@ -14,11 +14,13 @@ class RadarMeta:
       frame="sensor:lidar_top"
       sensor_pose_in_ego=np.eye(4, dtype=np.float32)
       ego_pose_in_world: (4, 4) SE(3) transform, ego -> world (optional)
+      ego_velocity_in_world=np.array([vx, vy, vz], dtype=np.float32)
     """
 
     frame: str
     sensor_pose_in_ego: np.ndarray  # (4x4 SE(3) transform), sensor -> ego
     ego_pose_in_world: Optional[np.ndarray] = None  # (4x4 SE(3) transform), ego -> world
+    ego_velocity_in_world: Optional[np.ndarray] = None  # (3,) velocity in world (m/s)
 
 
 @dataclass()
