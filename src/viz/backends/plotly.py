@@ -49,6 +49,19 @@ class PlotlyBackend(BaseBackend):
         if isinstance(layer, RasterLayer):
             if layer.display == "polar" and layer.axes and layer.bins:
                 self.add_raster_polar(fig, layer)
+            elif layer.axes and layer.bins:
+                x = layer.bins[layer.axes[1]]
+                y = layer.bins[layer.axes[0]]
+                fig.add_trace(
+                    go.Heatmap(
+                        x=x,
+                        y=y,
+                        z=layer.data,
+                        colorscale=layer.style.colormap or "Viridis",
+                        showscale=False,
+                        name=layer.name,
+                    )
+                )
             else:
                 fig.add_trace(go.Image(z=layer.data, name=layer.name))
 

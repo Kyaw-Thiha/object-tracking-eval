@@ -13,6 +13,7 @@ from ...backends.napari import NapariBackend
 from ...backends.open3d import Open3DBackend
 from ...backends.plotly import PlotlyBackend, PlotlyHandle
 from ...schema.render_spec import RenderSpec
+from ...schema.layers import RasterLayer
 
 BackendName = Literal["open3d", "napari", "plotly"]
 
@@ -103,7 +104,18 @@ def render_plotly_grid(
     if len(specs) != rows * cols:
         raise ValueError("specs length must match rows * cols")
 
-    fig = make_subplots(rows=rows, cols=cols, subplot_titles=titles)
+    def spec_is_polar(spec: RenderSpec) -> bool:
+        return any(isinstance(layer, RasterLayer) and layer.display == "polar" for layer in spec.layers)
+
+    subplot_specs = []
+    for r in range(rows):
+        row_specs = []
+        for c in range(cols):
+            idx = r * cols + c
+            row_specs.append({"type": "polar"} if spec_is_polar(specs[idx]) else {"type": "xy"})
+        subplot_specs.append(row_specs)
+
+    fig = make_subplots(rows=rows, cols=cols, subplot_titles=titles, specs=subplot_specs)
     backend = PlotlyBackend(use_webgl=use_webgl)
 
     for idx, spec in enumerate(specs):
