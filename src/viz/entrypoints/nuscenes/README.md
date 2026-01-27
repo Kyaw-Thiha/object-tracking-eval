@@ -64,6 +64,19 @@ python -m src.viz.entrypoints.nuscenes.single.radar_point \
   --backend plotly
 ```
 
+Open3D (3D radar points + GT overlays):
+```bash
+python -m src.viz.entrypoints.nuscenes.single.radar_point \
+  --dataset-path data/nuScenes \
+  --index 0 \
+  --end-index 20 \
+  --play-interval 0.2 \
+  --sensor-id RADAR_FRONT \
+  --show-gt-centers \
+  --show-gt-footprints \
+  --backend open3d
+```
+
 ### LiDAR
 ```bash
 python -m src.viz.entrypoints.nuscenes.single.lidar \

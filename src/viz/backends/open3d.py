@@ -73,7 +73,7 @@ class Open3DBackend(BaseBackend):
             return
         render_opt = vis.get_render_option()
         if render_opt is not None:
-            render_opt.point_size = 1.0
+            render_opt.point_size = 3.0 if spec.meta.view_name == "RadarPointView" else 1.0
         points = self.collect_points(geometries)
         if points is None or points.size == 0:
             return
@@ -150,11 +150,18 @@ class Open3DBackend(BaseBackend):
 
         segments = layer.segments.astype(float)
         points = segments.reshape(-1, segments.shape[-1])
+        if points.shape[1] == 2:
+            z = np.zeros((points.shape[0], 1), dtype=points.dtype)
+            points = np.concatenate([points, z], axis=1)
         lines = np.array([[i, i + 1] for i in range(0, points.shape[0], 2)], dtype=int)
 
         line_set = o3d.geometry.LineSet()
         line_set.points = o3d.utility.Vector3dVector(points)
         line_set.lines = o3d.utility.Vector2iVector(lines)
+        if layer.style.color is not None:
+            color = np.array(layer.style.color, dtype=float)
+            colors = np.repeat(color[None, :], len(lines), axis=0)
+            line_set.colors = o3d.utility.Vector3dVector(colors)
         return line_set
 
     def boxes3d_to_geometry(self, layer: Box3DLayer) -> list[o3d.geometry.Geometry]:

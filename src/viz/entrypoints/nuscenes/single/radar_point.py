@@ -6,6 +6,7 @@ import textwrap
 from ....backends.plotly import PlotlyBackend
 from ....sequence_player.base import SequenceRange
 from ....sequence_player.napari import NapariSequencePlayer
+from ....sequence_player.open3d import Open3DSequencePlayer
 from ....sequence_player.plotly import PlotlySequencePlayer
 from ....views.radar_point import RadarPointView, RadarPointViewConfig
 from ..common import NuscenesArgs, build_backend, load_adapter, resolve_start_index
@@ -42,7 +43,7 @@ def main() -> None:
     parser.add_argument("--show-gt-centers", action="store_true")
     parser.add_argument("--show-gt-footprints", action="store_true")
     parser.add_argument("--use-webgl", action="store_true", help="Enable WebGL scatter for faster playback.")
-    parser.add_argument("--backend", type=str, choices=["plotly", "napari"], default="plotly")
+    parser.add_argument("--backend", type=str, choices=["plotly", "napari", "open3d"], default="plotly")
     args = parser.parse_args()
 
     cfg = NuscenesArgs(
@@ -90,7 +91,7 @@ def main() -> None:
 
         fig = player.build_animation(build_figure)
         fig.show()
-    else:
+    elif cfg.backend == "napari":
         backend = build_backend(cfg.backend)
         player = NapariSequencePlayer(
             get_frame=adapter.get_frame,
@@ -102,6 +103,15 @@ def main() -> None:
         import napari
 
         napari.run()
+    else:
+        backend = build_backend(cfg.backend)
+        player = Open3DSequencePlayer(
+            get_frame=adapter.get_frame,
+            build_spec=build_spec,
+            seq=seq,
+            play_interval_s=args.play_interval,
+        )
+        player.run(backend)
 
 
 if __name__ == "__main__":

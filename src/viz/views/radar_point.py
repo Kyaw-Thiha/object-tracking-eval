@@ -8,7 +8,7 @@ from ...data.schema.radar import RadarSensorFrame
 from .base import BaseView
 from ..schema.render_spec import RenderSpec
 from ..schema.layers import LineLayer, PointLayer, TrackLayer
-from ..schema.base_layer import Layer, LayerMeta
+from ..schema.base_layer import Layer, LayerMeta, LayerStyle
 from ..geometry import box3d_bev_footprint, xyz_to_radar_ra
 from ..palette import CLASS_COLORS, DEFAULT_COLOR
 from ..schema.base_layer import LayerStyle
@@ -72,6 +72,7 @@ class RadarPointView(BaseView[RadarPointViewConfig]):
             color=None,
             value_key=cfg.value_key,
             units=cfg.units,
+            style=LayerStyle(point_size=5.0),
         )
 
     def build_tracks_layer(self, frame: Frame, cfg: RadarPointViewConfig) -> TrackLayer | None:
@@ -168,6 +169,7 @@ class RadarPointView(BaseView[RadarPointViewConfig]):
                     color=colors,
                     value_key=None,
                     units=None,
+                    style=LayerStyle(point_size=5.0),
                 )
             )
 
