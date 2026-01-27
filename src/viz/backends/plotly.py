@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 
 from .base import BaseBackend
 from ..schema.render_spec import RenderSpec
-from ..schema.layers import RasterLayer, PointLayer, Box2DLayer, Box3DLayer, TextLayer, TrackLayer
+from ..schema.layers import RasterLayer, PointLayer, Box2DLayer, Box3DLayer, LineLayer, TextLayer, TrackLayer
 from ..geometry import box3d_bev_corners
 from ..palette import DEFAULT_COLOR
 
@@ -82,6 +82,27 @@ class PlotlyBackend(BaseBackend):
             else:
                 fig.add_trace(go.Image(z=layer.data, name=layer.name))
 
+        elif isinstance(layer, PointLayer) and layer.meta.coord_frame == "grid:ra:polar":
+            marker: dict[str, Any] = {"size": layer.style.point_size}
+            if layer.color is not None:
+                if layer.color.ndim == 1:
+                    marker["color"] = layer.color
+                else:
+                    marker["color"] = ["rgb(%d,%d,%d)" % tuple((c * 255).astype(int)) for c in layer.color]
+            elif layer.value is not None:
+                marker["color"] = layer.value
+                marker["colorscale"] = layer.style.colormap or "Viridis"
+
+            fig.add_trace(
+                go.Scatterpolar(
+                    r=layer.xyz[:, 0],
+                    theta=np.degrees(layer.xyz[:, 1]),
+                    mode="markers",
+                    name=layer.name,
+                    marker=marker,
+                )
+            )
+
         elif isinstance(layer, PointLayer):
             marker: dict[str, Any] = {"size": layer.style.point_size}
             if layer.color is not None:
@@ -118,6 +139,46 @@ class PlotlyBackend(BaseBackend):
                     line=dict(width=layer.style.line_width, color=rgb_string(color)),
                     fillcolor=rgba_string(color, 0.15),
                 )
+
+        elif isinstance(layer, LineLayer) and layer.meta.coord_frame == "grid:ra:polar":
+            r_vals = []
+            theta_vals = []
+            for seg in layer.segments:
+                r_vals.extend([seg[0, 0], seg[1, 0], None])
+                theta_vals.extend([np.degrees(seg[0, 1]), np.degrees(seg[1, 1]), None])
+            line_color = None
+            if layer.style.color is not None:
+                line_color = rgb_string(layer.style.color)
+            fig.add_trace(
+                go.Scatterpolar(
+                    r=r_vals,
+                    theta=theta_vals,
+                    mode="lines",
+                    name=layer.name,
+                    showlegend=False,
+                    line=dict(width=layer.style.line_width, color=line_color),
+                )
+            )
+
+        elif isinstance(layer, LineLayer):
+            x_vals = []
+            y_vals = []
+            for seg in layer.segments:
+                x_vals.extend([seg[0, 0], seg[1, 0], None])
+                y_vals.extend([seg[0, 1], seg[1, 1], None])
+            line_color = None
+            if layer.style.color is not None:
+                line_color = rgb_string(layer.style.color)
+            fig.add_trace(
+                go.Scatter(
+                    x=x_vals,
+                    y=y_vals,
+                    mode="lines",
+                    name=layer.name,
+                    showlegend=False,
+                    line=dict(width=layer.style.line_width, color=line_color),
+                )
+            )
 
         elif isinstance(layer, Box3DLayer):
             class_ids = layer.class_ids if layer.class_ids is not None else [None] * len(layer.centers)

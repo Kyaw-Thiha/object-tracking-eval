@@ -1,6 +1,7 @@
 """Radar grid view builder."""
 
 from dataclasses import dataclass
+import numpy as np
 from typing import Literal
 
 from ...data.schema.radar import RadarSensorFrame
@@ -10,6 +11,8 @@ from ..schema.render_spec import RenderSpec
 from ..schema.layers import LineLayer, PointLayer, RasterLayer
 from ..schema.base_layer import Layer, LayerMeta
 from ..geometry import box3d_bev_footprint, xyz_to_radar_ra
+from ..palette import CLASS_COLORS, DEFAULT_COLOR
+from ..schema.base_layer import LayerStyle
 from ..transforms import invert_se3, transform_boxes3d
 from ...data.schema.frame import Frame
 
@@ -75,6 +78,8 @@ class RadarGridView(BaseView[RadarGridViewConfig]):
             return []
 
         radar = frame.sensors[cfg.sensor_id].data
+        if radar.grids is None or "RA" not in radar.grids:
+            return []
         if radar.meta.ego_pose_in_world is None:
             return []
 
@@ -89,51 +94,81 @@ class RadarGridView(BaseView[RadarGridViewConfig]):
         centers = np.stack([b.center_xyz for b in boxes], axis=0)
         sizes = np.stack([b.size_lwh for b in boxes], axis=0)
         yaws = np.array([b.yaw for b in boxes], dtype=float)
+        class_ids = np.array([b.class_id for b in boxes], dtype=int)
         centers, sizes, yaws = transform_boxes3d(centers, sizes, yaws, T_sensor_world)
+
+        grid = radar.grids["RA"]
+        range_bins = grid.bins.get("range") if grid.bins else None
+        azimuth_bins = grid.bins.get("azimuth") if grid.bins else None
+        if range_bins is None or azimuth_bins is None:
+            return []
+        r_min, r_max = float(range_bins.min()), float(range_bins.max())
+        a_min, a_max = float(azimuth_bins.min()), float(azimuth_bins.max())
 
         layers: list[Layer] = []
         if cfg.show_gt_centers:
             ra = xyz_to_radar_ra(centers)
-            layers.append(
-                PointLayer(
-                    name=f"{cfg.sensor_id}.gt_centers.ra",
-                    meta=LayerMeta(
-                        source="gt",
-                        sensor_id=cfg.sensor_id,
-                        kind="gt_center",
-                        coord_frame="grid:ra",
-                        timestamp=frame.timestamp,
-                    ),
-                    xyz=np.stack([ra[:, 1], ra[:, 0]], axis=1),
-                    value=None,
-                    color=None,
-                    value_key=None,
-                    units=None,
-                )
-            )
-
-        if cfg.show_gt_footprints:
-            segments = []
-            for center, size, yaw in zip(centers, sizes, yaws):
-                corners = box3d_bev_footprint(center, size, yaw)
-                ra = xyz_to_radar_ra(np.column_stack([corners, np.zeros((corners.shape[0], 1))]))
-                seg = np.stack([ra[:-1], ra[1:]], axis=1)
-                seg = seg[:, :, [1, 0]]
-                segments.append(seg)
-            if segments:
-                segments_np = np.concatenate(segments, axis=0)
+            mask = (ra[:, 0] >= r_min) & (ra[:, 0] <= r_max) & (ra[:, 1] >= a_min) & (ra[:, 1] <= a_max)
+            ra = ra[mask]
+            class_ids_ra = class_ids[mask]
+            if ra.size > 0:
+                colors = np.array([CLASS_COLORS.get(int(cid), DEFAULT_COLOR) for cid in class_ids_ra], dtype=float)
+                if cfg.display == "polar":
+                    coords = ra
+                    coord_frame = "grid:ra:polar"
+                else:
+                    coords = np.stack([ra[:, 1], ra[:, 0]], axis=1)
+                    coord_frame = "grid:ra"
                 layers.append(
-                    LineLayer(
-                        name=f"{cfg.sensor_id}.gt_boxes.ra",
+                    PointLayer(
+                        name=f"{cfg.sensor_id}.gt_centers.ra",
                         meta=LayerMeta(
                             source="gt",
                             sensor_id=cfg.sensor_id,
-                            kind="gt_box",
-                            coord_frame="grid:ra",
+                            kind="gt_center",
+                            coord_frame=coord_frame,
                             timestamp=frame.timestamp,
                         ),
-                        segments=segments_np,
+                        xyz=coords,
+                        value=None,
+                        color=colors,
+                        value_key=None,
+                        units=None,
                     )
                 )
+
+        if cfg.show_gt_footprints:
+            segments_by_class: dict[int, list[np.ndarray]] = {}
+            for center, size, yaw, class_id in zip(centers, sizes, yaws, class_ids):
+                corners = box3d_bev_footprint(center, size, yaw)
+                ra = xyz_to_radar_ra(np.column_stack([corners, np.zeros((corners.shape[0], 1))]))
+                in_bounds = (ra[:, 0] >= r_min) & (ra[:, 0] <= r_max) & (ra[:, 1] >= a_min) & (ra[:, 1] <= a_max)
+                if not np.all(in_bounds):
+                    continue
+                if cfg.display == "polar":
+                    seg = np.stack([ra[:-1], ra[1:]], axis=1)
+                else:
+                    seg = np.stack([ra[:-1], ra[1:]], axis=1)
+                    seg = seg[:, :, [1, 0]]
+                segments_by_class.setdefault(int(class_id), []).append(seg)
+            if segments_by_class:
+                coord_frame = "grid:ra:polar" if cfg.display == "polar" else "grid:ra"
+                for class_id, segments in segments_by_class.items():
+                    segments_np = np.concatenate(segments, axis=0)
+                    color = CLASS_COLORS.get(int(class_id), DEFAULT_COLOR)
+                    layers.append(
+                        LineLayer(
+                            name=f"{cfg.sensor_id}.gt_boxes.ra.{class_id}",
+                            meta=LayerMeta(
+                                source="gt",
+                                sensor_id=cfg.sensor_id,
+                                kind="gt_box",
+                                coord_frame=coord_frame,
+                                timestamp=frame.timestamp,
+                            ),
+                            segments=segments_np,
+                            style=LayerStyle(color=color, line_width=1.5),
+                        )
+                    )
 
         return layers

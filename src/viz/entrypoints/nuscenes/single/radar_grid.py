@@ -3,7 +3,9 @@ from __future__ import annotations
 import argparse
 import textwrap
 
+
 from ....backends.plotly import PlotlyBackend
+from ....backends.napari import NapariBackend
 from ....sequence_player.base import SequenceRange
 from ....sequence_player.napari import NapariSequencePlayer
 from ....sequence_player.plotly import PlotlySequencePlayer
@@ -89,7 +91,7 @@ def main() -> None:
         fig = player.build_animation(build_figure)
         fig.show()
     else:
-        backend = build_backend(cfg.backend)
+        backend: NapariBackend = build_backend(cfg.backend)
         player = NapariSequencePlayer(
             get_frame=adapter.get_frame,
             build_spec=build_spec,

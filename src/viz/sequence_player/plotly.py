@@ -40,6 +40,7 @@ class PlotlySequencePlayer(BaseSequencePlayer):
 
         assert base_fig is not None
         base_fig.frames = frames
+        base_fig.update_layout(updatemenus=[], sliders=[])
 
         steps = []
         for idx in indices:
