@@ -47,19 +47,33 @@ class NapariBackend(BaseBackend):
 
         elif isinstance(layer, Box2DLayer):
             x1, y1, x2, y2 = layer.xyxy[:, 0], layer.xyxy[:, 1], layer.xyxy[:, 2], layer.xyxy[:, 3]
-            verts = np.stack(
-                [
-                    np.stack([x1, y1], axis=1),
-                    np.stack([x2, y1], axis=1),
-                    np.stack([x2, y2], axis=1),
-                    np.stack([x1, y2], axis=1),
-                ],
-                axis=1,
-            )
+            if layer.meta.coord_frame == "pixel":
+                verts = np.stack(
+                    [
+                        np.stack([y1, x1], axis=1),
+                        np.stack([y1, x2], axis=1),
+                        np.stack([y2, x2], axis=1),
+                        np.stack([y2, x1], axis=1),
+                    ],
+                    axis=1,
+                )
+            else:
+                verts = np.stack(
+                    [
+                        np.stack([x1, y1], axis=1),
+                        np.stack([x2, y1], axis=1),
+                        np.stack([x2, y2], axis=1),
+                        np.stack([x1, y2], axis=1),
+                    ],
+                    axis=1,
+                )
             viewer.add_shapes(verts, shape_type="polygon", name=layer.name, edge_width=int(layer.style.line_width))
 
         elif isinstance(layer, TextLayer):
-            viewer.add_text(layer.xy[:, :2], layer.texts, name=layer.name)
+            xy = layer.xy[:, :2]
+            if layer.meta.coord_frame == "pixel":
+                xy = xy[:, [1, 0]]
+            viewer.add_text(xy, layer.texts, name=layer.name)
 
         elif isinstance(layer, TrackLayer):
             pts = layer.positions_xyz[:, :2]
