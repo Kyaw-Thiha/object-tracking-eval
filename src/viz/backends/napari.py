@@ -12,6 +12,7 @@ from napari import Viewer
 from .base import BaseBackend
 from ..schema.render_spec import RenderSpec
 from ..schema.layers import RasterLayer, PointLayer, Box2DLayer, TextLayer, TrackLayer
+from ..palette import DEFAULT_COLOR
 
 
 @dataclass
@@ -38,6 +39,15 @@ class NapariBackend(BaseBackend):
             self.add_layer(viewer, layer)
 
     def add_layer(self, viewer: Viewer, layer: Any) -> None:
+        def rgba_for_class(layer_obj: Any, class_id: int | None, alpha: float) -> tuple[float, float, float, float]:
+            if class_id is None:
+                return (*DEFAULT_COLOR, alpha)
+            palette = getattr(layer_obj.style, "palette", None)
+            if palette is None:
+                return (*DEFAULT_COLOR, alpha)
+            rgb = palette.get(int(class_id), DEFAULT_COLOR)
+            return (rgb[0], rgb[1], rgb[2], alpha)
+
         if isinstance(layer, RasterLayer):
             viewer.add_image(layer.data, name=layer.name)
 
@@ -67,7 +77,17 @@ class NapariBackend(BaseBackend):
                     ],
                     axis=1,
                 )
-            viewer.add_shapes(verts, shape_type="polygon", name=layer.name, edge_width=int(layer.style.line_width))
+            class_ids = layer.class_ids if layer.class_ids is not None else [None] * len(verts)
+            edge_colors = [rgba_for_class(layer, cid, 1.0) for cid in class_ids]
+            face_colors = [rgba_for_class(layer, cid, 0.15) for cid in class_ids]
+            viewer.add_shapes(
+                verts,
+                shape_type="polygon",
+                name=layer.name,
+                edge_width=int(layer.style.line_width),
+                edge_color=edge_colors,
+                face_color=face_colors,
+            )
 
         elif isinstance(layer, TextLayer):
             xy = layer.xy[:, :2]

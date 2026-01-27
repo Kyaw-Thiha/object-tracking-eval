@@ -6,9 +6,10 @@ import numpy as np
 from .base import BaseView
 from ..schema.render_spec import RenderSpec
 from ..schema.layers import RasterLayer, Box2DLayer, TrackLayer, TextLayer
-from ..schema.base_layer import Layer, LayerMeta
+from ..schema.base_layer import Layer, LayerMeta, LayerStyle
 from ..transforms import invert_se3, project_points_to_image, transform_points
 from ..geometry import box3d_to_box2d, ego_pose_in_world_from_frame
+from ..palette import CLASS_COLORS
 from ...data.schema.frame import Frame
 from ...data.schema.image import ImageSensorFrame
 from ...data.schema.overlay import Box2D, Track
@@ -93,6 +94,7 @@ class CameraView(BaseView[CameraViewConfig]):
             image_shape = (int(sensor.image.shape[0]), int(sensor.image.shape[1]))
             xyxy_list = []
             labels = []
+            class_ids = []
             for b in frame.overlays.boxes3D[cfg.source_key]:
                 if b.meta.coord_frame != "world":
                     continue
@@ -107,6 +109,7 @@ class CameraView(BaseView[CameraViewConfig]):
                 if rect is None:
                     continue
                 xyxy_list.append(rect)
+                class_ids.append(b.class_id)
                 labels.append(f"id={b.track_id}" if b.track_id is not None else "")
 
             if not xyxy_list:
@@ -124,11 +127,13 @@ class CameraView(BaseView[CameraViewConfig]):
                 ),
                 xyxy=xyxy,
                 labels=labels if cfg.show_labels else None,
-                class_ids=None,
+                class_ids=np.array(class_ids, dtype=int) if class_ids else None,
+                style=LayerStyle(palette=CLASS_COLORS, line_width=1.5),
             )
 
         xyxy = np.stack([b.xyxy for b in boxes], axis=0)
         labels = [f"id={b.track_id}" if b.track_id is not None else "" for b in boxes]
+        class_ids = np.array([b.class_id for b in boxes], dtype=int) if boxes else None
 
         return Box2DLayer(
             name=f"{cfg.sensor_id}.boxes2d",
@@ -141,7 +146,8 @@ class CameraView(BaseView[CameraViewConfig]):
             ),
             xyxy=xyxy,
             labels=labels if cfg.show_labels else None,
-            class_ids=None,
+            class_ids=class_ids,
+            style=LayerStyle(palette=CLASS_COLORS, line_width=1.5),
         )
 
     def build_tracks_layers(self, frame: Frame, cfg: CameraViewConfig) -> list[Layer]:

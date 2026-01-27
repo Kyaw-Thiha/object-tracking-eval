@@ -12,6 +12,7 @@ import open3d as o3d
 from .base import BaseBackend
 from ..schema.render_spec import RenderSpec
 from ..schema.layers import PointLayer, LineLayer, Box3DLayer, TrackLayer
+from ..palette import DEFAULT_COLOR
 
 
 @dataclass
@@ -159,8 +160,17 @@ class Open3DBackend(BaseBackend):
     def boxes3d_to_geometry(self, layer: Box3DLayer) -> list[o3d.geometry.Geometry]:
         import open3d as o3d
 
+        def color_for_class(layer_obj: Any, class_id: int | None) -> tuple[float, float, float]:
+            if class_id is None:
+                return DEFAULT_COLOR
+            palette = getattr(layer_obj.style, "palette", None)
+            if palette is None:
+                return DEFAULT_COLOR
+            return palette.get(int(class_id), DEFAULT_COLOR)
+
         geoms: list[o3d.geometry.Geometry] = []
-        for center, size, yaw in zip(layer.centers, layer.sizes_lwh, layer.yaws):
+        class_ids = layer.class_ids if layer.class_ids is not None else [None] * len(layer.centers)
+        for center, size, yaw, class_id in zip(layer.centers, layer.sizes_lwh, layer.yaws, class_ids):
             box = o3d.geometry.OrientedBoundingBox()
             box.center = center.astype(float)
             box.extent = size.astype(float)
@@ -170,7 +180,7 @@ class Open3DBackend(BaseBackend):
             if layer.style.color is not None:
                 line_set.paint_uniform_color(list(layer.style.color))
             else:
-                line_set.paint_uniform_color([0.1, 0.9, 0.2])
+                line_set.paint_uniform_color(list(color_for_class(layer, class_id)))
             geoms.append(line_set)
         return geoms
 

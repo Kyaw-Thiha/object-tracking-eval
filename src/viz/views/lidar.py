@@ -8,8 +8,9 @@ from ...data.schema.lidar import LidarSensorFrame
 from .base import BaseView
 from ..schema.render_spec import RenderSpec
 from ..schema.layers import PointLayer, Box3DLayer, TrackLayer
-from ..schema.base_layer import LayerMeta
+from ..schema.base_layer import LayerMeta, LayerStyle
 from ..transforms import invert_se3, transform_boxes3d
+from ..palette import CLASS_COLORS
 from ...data.schema.frame import Frame
 from ...data.schema.overlay import Track
 
@@ -89,6 +90,7 @@ class LidarView(BaseView[LidarViewConfig]):
         centers_list = []
         sizes_list = []
         yaws_list = []
+        class_ids_list = []
 
         if boxes_world and lidar.meta.ego_pose_in_world is not None:
             T_ego_world = invert_se3(lidar.meta.ego_pose_in_world)
@@ -102,11 +104,13 @@ class LidarView(BaseView[LidarViewConfig]):
             centers_list.append(centers)
             sizes_list.append(sizes)
             yaws_list.append(yaws)
+            class_ids_list.append(np.array([b.class_id for b in boxes_world], dtype=int))
 
         if boxes_sensor:
             centers_list.append(np.stack([b.center_xyz for b in boxes_sensor], axis=0))
             sizes_list.append(np.stack([b.size_lwh for b in boxes_sensor], axis=0))
             yaws_list.append(np.array([b.yaw for b in boxes_sensor], dtype=float))
+            class_ids_list.append(np.array([b.class_id for b in boxes_sensor], dtype=int))
 
         if not centers_list:
             return None
@@ -114,6 +118,7 @@ class LidarView(BaseView[LidarViewConfig]):
         centers = np.concatenate(centers_list, axis=0)
         sizes = np.concatenate(sizes_list, axis=0)
         yaws = np.concatenate(yaws_list, axis=0)
+        class_ids = np.concatenate(class_ids_list, axis=0) if class_ids_list else None
 
         return Box3DLayer(
             name=f"{cfg.sensor_id}.boxes3d",
@@ -128,7 +133,8 @@ class LidarView(BaseView[LidarViewConfig]):
             sizes_lwh=sizes,
             yaws=yaws,
             labels=None,
-            class_ids=None,
+            class_ids=class_ids,
+            style=LayerStyle(palette=CLASS_COLORS, line_width=1.5),
         )
 
     def build_tracks_layer(self, frame: Frame, cfg: LidarViewConfig) -> TrackLayer | None:

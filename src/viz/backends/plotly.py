@@ -12,6 +12,7 @@ from .base import BaseBackend
 from ..schema.render_spec import RenderSpec
 from ..schema.layers import RasterLayer, PointLayer, Box2DLayer, Box3DLayer, TextLayer, TrackLayer
 from ..geometry import box3d_bev_corners
+from ..palette import DEFAULT_COLOR
 
 
 @dataclass
@@ -47,6 +48,21 @@ class PlotlyBackend(BaseBackend):
         self.add_layer_filters(fig, spec)
 
     def add_layer(self, fig: go.Figure, layer: Any) -> None:
+        def rgb_string(color: tuple[float, float, float]) -> str:
+            return "rgb(%d,%d,%d)" % tuple((np.array(color) * 255).astype(int))
+
+        def rgba_string(color: tuple[float, float, float], alpha: float) -> str:
+            vals = tuple((np.array(color) * 255).astype(int).tolist())
+            return f"rgba({vals[0]},{vals[1]},{vals[2]},{alpha:.3f})"
+
+        def color_for_class(layer_obj: Any, class_id: int | None) -> tuple[float, float, float]:
+            if class_id is None:
+                return DEFAULT_COLOR
+            palette = getattr(layer_obj.style, "palette", None)
+            if palette is None:
+                return DEFAULT_COLOR
+            return palette.get(int(class_id), DEFAULT_COLOR)
+
         if isinstance(layer, RasterLayer):
             if layer.display == "polar" and layer.axes and layer.bins:
                 self.add_raster_polar(fig, layer)
@@ -89,13 +105,25 @@ class PlotlyBackend(BaseBackend):
             )
 
         elif isinstance(layer, Box2DLayer):
-            for box in layer.xyxy:
+            class_ids = layer.class_ids if layer.class_ids is not None else [None] * len(layer.xyxy)
+            for box, class_id in zip(layer.xyxy, class_ids):
                 x1, y1, x2, y2 = box.tolist()
-                fig.add_shape(type="rect", x0=x1, y0=y1, x1=x2, y1=y2, line=dict(width=layer.style.line_width))
+                color = color_for_class(layer, class_id)
+                fig.add_shape(
+                    type="rect",
+                    x0=x1,
+                    y0=y1,
+                    x1=x2,
+                    y1=y2,
+                    line=dict(width=layer.style.line_width, color=rgb_string(color)),
+                    fillcolor=rgba_string(color, 0.15),
+                )
 
         elif isinstance(layer, Box3DLayer):
-            for center, size, yaw in zip(layer.centers, layer.sizes_lwh, layer.yaws):
+            class_ids = layer.class_ids if layer.class_ids is not None else [None] * len(layer.centers)
+            for center, size, yaw, class_id in zip(layer.centers, layer.sizes_lwh, layer.yaws, class_ids):
                 xy = box3d_bev_corners(center, size, yaw)
+                color = color_for_class(layer, class_id)
                 fig.add_trace(
                     go.Scatter(
                         x=xy[:, 0],
@@ -103,7 +131,9 @@ class PlotlyBackend(BaseBackend):
                         mode="lines",
                         name=layer.name,
                         showlegend=False,
-                        line=dict(width=layer.style.line_width),
+                        line=dict(width=layer.style.line_width, color=rgb_string(color)),
+                        fill="toself",
+                        fillcolor=rgba_string(color, 0.15),
                     )
                 )
 
