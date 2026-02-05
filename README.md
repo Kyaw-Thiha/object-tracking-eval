@@ -30,7 +30,7 @@ pip install -r requirements.txt
 ```
 
 # Using Simplified Inference Pipeline for model evaluation
-the inference script is under src/evaluate_model.py
+The inference script is `src/evaluation_pipeline.py`.
 
 ## Detection Model requirements
 Assure a model builder script is saved under src/model_factory, which must contain function factory(torch.device), which returns the model instance.
@@ -45,41 +45,18 @@ batch_covs      # list[torch.tensor([num_detections, 4, 4])]
 ```
 
 
-# Using UncertaintyTrack Legacy train/test scripts
-## Training:
-example
-```
-python3.10 train.py configs/bytetrack/bytetrack_yolox_x_3x6_mot17-half.py \
-    --work-dir ./work_dirs/test_run --no-validate \
-    --cfg-options data.workers_per_gpu=1 \
-    model.detector.init_cfg.checkpoint=checkpoints/yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth
-```
+# Training (custom pipeline)
+Use `src/train.py` with a MMDet/MMTrack-style config (as model zoo only) and a
+dataloader factory from `src/data/dataloaders/`.
 
-## Test / evaluation:
-### Eval mode: outputs evaluation metrics
-example
+Example:
 ```
-nohup python3.10 test.py configs/bytetrack/bytetrack_yolox_x_3x6_mot17-half.py \
-    --checkpoint work_dirs/test_run/latest.pth \
-    --eval track \
-    --out results.pkl > nohup_test_added_test_dataset_in_config.out
-```
-
-### Formate only mode: outputs annotation files from inference as well as annotated videos
-example
-```
-nohup python3.10 test.py configs/bytetrack/bytetrack_yolox_x_3x6_mot17-half.py \
-    --checkpoint work_dirs/test_run/latest.pth \
-    --out results.pkl \
-    --format-only > nohup_test_full_test_dataset.out
-```
-
-## Custom config File with fixed covariance value
-path: configs/custom/pseudo_uncertainmot_yolox_x_3x6_mot17-half.py
-command to run test.py:
-```
-nohup python3.10 test.py configs/custom/pseudo_uncertainmot_yolox_x_3x6_mot17-half.py \
-    --checkpoint work_dirs/test_run/latest.pth \
-    --out results_custom.pkl \
-    --format-only > nohup_custom.out
+python3.10 src/train.py \
+    --config src/configs/yolox/prob_yolox_x_es_mot17-half.py \
+    --checkpoint checkpoints/yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth \
+    --work-dir work_dirs/prob_yolox_x_es_mot17_half \
+    --dataloader-factory mot17_train_dataloader \
+    --epochs 80 \
+    --lr 1e-4 \
+    --batch-size 4
 ```
