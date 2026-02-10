@@ -7,8 +7,13 @@ import scipy.linalg
 from mmtrack.models.builder import MOTION
 from mmtrack.models.motion.kalman_filter import KalmanFilter
 
-from core.utils import (
-    KLDivergence, JRDivergence, GIoU, Bhattacharyya, Wasserstein, Mahalanobis
+from core.utils.distance import (
+    Bhattacharyya,
+    GIoU,
+    JRDivergence,
+    KLDivergence,
+    Mahalanobis,
+    Wasserstein,
 )
 
 @MOTION.register_module()

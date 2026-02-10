@@ -310,7 +310,7 @@ def main(debug=False):
                     rescale=False,
                 )
 
-                from core.utils import results2outs, outs2results
+                from core.utils.transforms import outs2results, results2outs
 
                 track_results = outs2results(
                     bboxes=track_bboxes, bbox_covs=track_bbox_covs, labels=track_labels, ids=track_ids, num_classes=number_classes

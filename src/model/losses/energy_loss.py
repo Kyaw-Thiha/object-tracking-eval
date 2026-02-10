@@ -7,7 +7,7 @@ from mmdet.models.losses.smooth_l1_loss import smooth_l1_loss, l1_loss
 from mmdet.models.losses import IoULoss
 from mmdet.models.losses.iou_loss import iou_loss
 
-from core.utils import covariance2cholesky
+from core.utils.probabilistic_utils import covariance2cholesky
 
 def draw_samples(mean, cov, num_samples=1000):
     """Draw samples from the multivariate Gaussian distribution parameterized by mean and covariance.

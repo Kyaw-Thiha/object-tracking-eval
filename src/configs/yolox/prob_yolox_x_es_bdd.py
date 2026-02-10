@@ -9,7 +9,8 @@ DATA_ROOT = os.environ.get("DATA_ROOT", os.path.join(PROJECT_ROOT, "data"))
 
 _base_ = [
     '../_base_/models/prob_yolox_x.py',
-    '../_base_/datasets/bdd100k_det.py', '../_base_/default_runtime.py'
+    # REMOVED: dataset and runtime configs - using custom pipeline
+    # '../_base_/datasets/bdd100k_det.py', '../_base_/default_runtime.py'
 ]
 USE_MMDET=True
 
@@ -152,7 +153,7 @@ data = dict(
         pipeline=test_pipeline,
         ann_file=os.path.join(data_root, 'jsons', 'box_track_val_cocofmt.json'),   #! evaluate detection on tracking set 
         img_prefix=os.path.join(data_root, 'images', 'track', 'val'))  #! evaluate detection on tracking set 
-    ))
+    )
 
 # you need to set mode='dynamic' if you are using pytorch<=1.5.0
 fp16 = dict(loss_scale=dict(init_scale=512.))

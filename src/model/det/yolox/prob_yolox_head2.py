@@ -10,9 +10,11 @@ from mmdet.core import multi_apply, reduce_mean, bbox_overlaps, select_single_ml
 from mmdet.models.builder import HEADS
 from mmdet.models.dense_heads import YOLOXHead
 
-from core.utils import (
-    covariance2cholesky, compute_mean_covariance_torch,
-    clamp_log_variance, compute_mean_variance_torch
+from core.utils.loss_utils import clamp_log_variance
+from core.utils.probabilistic_utils import (
+    compute_mean_covariance_torch,
+    compute_mean_variance_torch,
+    covariance2cholesky,
 )
 
 

@@ -5,7 +5,7 @@ import mmcv
 from mmdet.models.builder import DETECTORS
 from mmdet.models.detectors import RetinaNet
 
-from core.utils import bbox_and_cov2result
+from core.utils.transforms import bbox_and_cov2result
 from core.visualization import imshow_det_bboxes
 
 

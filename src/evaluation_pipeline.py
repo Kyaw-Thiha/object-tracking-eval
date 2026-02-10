@@ -4,23 +4,18 @@ import os
 
 import torch
 import numpy as np
-from PIL import Image
 import cv2 as cv
 import time
 import json
-import scipy
 from scipy import stats as scipy_stats
 
 # tracker algorithms
 from model.tracker.uncertainty_tracker import UncertaintyTracker
 from model.tracker.prob_byte_tracker import ProbabilisticByteTracker
-from model.tracker.prob_sort_tracker import ProbabilisticSortTracker
 from model.tracker.prob_ocsort_tracker import ProbabilisticOCSORTTracker
 from model.kalman_filter_uncertainty import KalmanFilterWithUncertainty
 
-from core.utils import results2outs, outs2results
-
-from torch.utils.data import DataLoader
+from core.utils.transforms import outs2results
 
 import argparse
 import importlib
@@ -107,7 +102,7 @@ def load_tracker(tracker_name: str):
         tracker.motion = motion_model  # type: ignore[reportArgumentType]
     elif tracker_name == "prob_sort_tracker":
         print("Using Probabilistic Sort Tracker")
-        raise ValueError(f"Probabilistic Sort Tracker is not yet implemented.")
+        raise ValueError("Probabilistic Sort Tracker is not yet implemented.")
 
     elif tracker_name == "prob_ocsort_tracker":
         print("Using Probabilistic OCSORT Tracker")
@@ -130,26 +125,28 @@ class MOTDetector(torch.nn.Module):
         self.motion = motion
         self.with_motion = True
 
-    def forward(self, x):
-        # inference
-        preds = self.detector.infer(x)
+    def forward(self, x, targets=None):
+        # Route optional batch context to detectors that support it.
+        # Mainly meant to be used by early/proposal-based fusion detectors
+        if hasattr(self.detector, "infer_with_context"):
+            preds = self.detector.infer_with_context(x, targets)
+        else:
+            preds = self.detector.infer(x)
         return preds
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="evaluation pipeline")
-    parser.add_argument(
-        "--dataloader_factory", required=True, help="dataloader factory file name under data/dataloaders directory.", type=str
-    )
+    parser.add_argument("--dataloader_factory", required=True, help="dataloader factory file name under data/dataloaders directory.", type=str)
     parser.add_argument("--dataset_dir", required=True, help="directory path where the dataset is stored.", type=str)
     parser.add_argument("--model_factory", required=True, help="model factory file name under model/factory directory.", type=str)
     parser.add_argument("--tracker", required=True, help="specify a tracker type", choices=allowed_trackers, type=str)
     parser.add_argument("--device", required=True, help="specific device type", choices=["cpu", "cuda"], type=str)
     parser.add_argument("--output_dir", required=True, help="directory path where tracking output will be stored", type=str)
-    parser.add_argument(
-        "--eval_result_dir", required=True, help="directory path where to save the evaluation result to.", type=str
-    )
+    parser.add_argument("--eval_result_dir", required=True, help="directory path where to save the evaluation result to.", type=str)
     parser.add_argument("--plot_save_path", required=True, help="path to save the evaluation plots.", type=str)
+    parser.add_argument("--annotate-videos", action="store_true", help="Generate annotated videos with tracking results")
+    parser.add_argument("--video-output-dir", default="./annotated_videos", help="Directory to save annotated videos", type=str)
     return parser.parse_args()
 
 
@@ -161,7 +158,7 @@ def is_directory_empty(path):
         return not any(entries)
 
 
-def main(debug=False):
+def main():
     args = parse_args()
 
     device = args.device
@@ -177,7 +174,7 @@ def main(debug=False):
             results = json.load(f)
 
     else:
-        print(f"[INFO] Starting tracking evaluation pipeline...")
+        print("[INFO] Starting tracking evaluation pipeline...")
         # --- Get model from factory ---
         # from model.factory.opencv_yolox_factory import factory
         factory = import_model_factory(args.model_factory)
@@ -241,7 +238,7 @@ def main(debug=False):
                 actual_batch_size = imgs.shape[0]
 
                 # --- Inference ---
-                batch_dets = mot_model(imgs)
+                batch_dets = mot_model(imgs, targets)
 
                 assert isinstance(batch_dets, tuple) and len(batch_dets) == 3, (
                     "Model Inference must return a tuple of (batch_detection_bboxes, batch_detection_labels, batch_detection_bbox_covariance_matrices)"
@@ -256,22 +253,16 @@ def main(debug=False):
                 assert isinstance(batch_covs, list), "batch covs must be a python list"
                 assert all(isinstance(t, torch.Tensor) for t in batch_covs), "batch_covs must contain only torch.Tensor"
 
-                if not (
-                    len(batch_bboxes) == len(batch_labels)
-                    and len(batch_labels) == len(batch_covs)
-                    and len(batch_covs) == actual_batch_size
-                ):
+                if not (len(batch_bboxes) == len(batch_labels) and len(batch_labels) == len(batch_covs) and len(batch_covs) == actual_batch_size):
                     print(f"len(batch_bboxes): {len(batch_bboxes)}")
                     print(f"len(batch_labels): {len(batch_labels)}")
                     print(f"len(batch_covs): {len(batch_covs)}")
                     print(f"batch_size: {batch_size}")
                     print(f"actual_batch_size: {actual_batch_size}")
 
-                assert (
-                    len(batch_bboxes) == len(batch_labels)
-                    and len(batch_labels) == len(batch_covs)
-                    and len(batch_covs) == actual_batch_size
-                ), "result lists lengths must be identical"
+                assert len(batch_bboxes) == len(batch_labels) and len(batch_labels) == len(batch_covs) and len(batch_covs) == actual_batch_size, (
+                    "result lists lengths must be identical"
+                )
 
                 # --- iterate over frames within the batch  ---
                 for j in range(actual_batch_size):
@@ -298,7 +289,7 @@ def main(debug=False):
 
                     # --- tracking ---
                     track_bboxes, track_bbox_covs, track_labels, track_ids = tracker.track(
-                        img=img,
+                        img,
                         img_metas=[img_meta],
                         model=mot_model,
                         bboxes=det_bboxes,
@@ -393,6 +384,105 @@ def main(debug=False):
     with open(result_path, "w") as f:
         json.dump(results, f)
 
+    # --- Optionally generate annotated videos ---
+    if args.annotate_videos:
+        print("[INFO] Generating annotated videos...")
+        # Get sequence names from output directory
+        seq_names = [f.stem for f in Path(output_dir).glob("*.txt")]
+        annotate_results_from_txt(dataset_root=args.dataset_dir, resfile_dir=output_dir, seq_names=seq_names, output_dir=args.video_output_dir)
+
+
+def annotate_results_from_txt(dataset_root, resfile_dir, seq_names, output_dir):
+    """Annotate videos with tracking results.
+
+    Args:
+        dataset_root: Path to dataset root (e.g., MOT17/train)
+        resfile_dir: Directory containing .txt result files
+        seq_names: List of sequence names (e.g., ['MOT17-02-SDP', ...])
+        output_dir: Directory to save annotated videos
+    """
+    from tqdm import tqdm
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    for seq_name in seq_names:
+        gt_file = os.path.join(dataset_root, seq_name, "gt", "gt.txt")
+        img_dir = os.path.join(dataset_root, seq_name, "img1")
+        track_file = os.path.join(resfile_dir, f"{seq_name}.txt")
+
+        if not os.path.exists(track_file):
+            print(f"[SKIP] {seq_name}: tracking file not found")
+            continue
+
+        if not os.path.exists(img_dir):
+            print(f"[SKIP] {seq_name}: image directory not found")
+            continue
+
+        # Load GT (if available)
+        gt_dict = {}
+        if os.path.exists(gt_file):
+            with open(gt_file) as f:
+                for line in f:
+                    parts = line.strip().split(",")
+                    if len(parts) < 6:
+                        continue
+                    frame_id = int(float(parts[0]))
+                    x, y, w, h = map(float, parts[2:6])
+                    gt_dict.setdefault(frame_id, []).append([x, y, w, h])
+
+        # Load tracking results
+        track_dict = {}
+        with open(track_file) as f:
+            for line in f:
+                parts = line.strip().split(",")
+                if len(parts) < 6:
+                    continue
+                frame_id = int(float(parts[0]))
+                track_id = int(float(parts[1]))
+                x, y, w, h = map(float, parts[2:6])
+                track_dict.setdefault(frame_id, []).append([x, y, w, h, track_id])
+
+        # Get image files
+        image_files = sorted([f for f in os.listdir(img_dir) if f.endswith((".jpg", ".png"))])
+        if not image_files:
+            print(f"[SKIP] {seq_name}: no images found")
+            continue
+
+        num_frames = len(image_files)
+        sample_img = cv.imread(os.path.join(img_dir, image_files[0]))
+        H, W = sample_img.shape[:2]
+
+        # Setup video writer
+        out_path = os.path.join(output_dir, f"{seq_name}_annotated.mp4")
+        writer = cv.VideoWriter(out_path, getattr(cv, "VideoWriter_fourcc")(*"mp4v"), 30, (W, H))
+
+        for frame_id in tqdm(range(1, num_frames + 1), desc=f"[{seq_name}]"):
+            img_path = os.path.join(img_dir, f"{frame_id:06d}.jpg")
+            if not os.path.exists(img_path):
+                # Try .png extension
+                img_path = os.path.join(img_dir, f"{frame_id:06d}.png")
+                if not os.path.exists(img_path):
+                    continue
+
+            img = cv.imread(img_path)
+
+            # Draw GT (green)
+            for x, y, w, h in gt_dict.get(frame_id, []):
+                x1, y1, x2, y2 = int(x), int(y), int(x + w), int(y + h)
+                cv.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv.putText(img, "GT", (x1, y1 - 2), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+
+            # Draw Tracks (red)
+            for x, y, w, h, track_id in track_dict.get(frame_id, []):
+                x1, y1, x2, y2 = int(x), int(y), int(x + w), int(y + h)
+                cv.rectangle(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                cv.putText(img, f"ID {track_id}", (x1, y2 + 15), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+
+            writer.write(img)
+
+        writer.release()
+        print(f"[✓] Saved: {out_path}")
+
 
 if __name__ == "__main__":
-    main(debug=False)
+    main()

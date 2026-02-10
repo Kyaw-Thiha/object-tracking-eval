@@ -1,6 +1,8 @@
 import argparse
+import importlib
 import os
 import os.path as osp
+import sys
 from pathlib import Path
 
 import mmcv
@@ -10,11 +12,32 @@ import pandas as pd
 from mmcv import Config
 from mmcv.utils import print_log
 
-from mmtrack.datasets import build_dataset
-
-from core import *
-
 SRC_ROOT = Path(__file__).resolve().parent
+SRC_DIR = Path(__file__).resolve().parents[1]
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from core.visualization.mot import imshow_mot_errors
+from legacy.mmtrack_pipeline.eval_mot import get_mot_acc
+
+
+def build_dataset_from_cfg(dataset_cfg):
+    cfg = dict(dataset_cfg)
+    dataset_type = cfg.pop("type")
+    cfg["test_mode"] = True
+    dataset_map = {
+        "ProbabilisticMOTChallengeDataset": ("legacy.mmtrack_datasets.prob_mot_challenge_dataset", "ProbabilisticMOTChallengeDataset"),
+        "ProbabilisticCocoVideoDataset": ("legacy.mmtrack_datasets.prob_coco_video_dataset", "ProbabilisticCocoVideoDataset"),
+        "BDDVideoDataset": ("legacy.mmtrack_datasets.bdd_video_dataset", "BDDVideoDataset"),
+        "BDD100KDetDataset": ("legacy.mmtrack_datasets.bdd100k_det_dataset", "BDD100KDetDataset"),
+        "ProbabilisticCocoDataset": ("legacy.mmtrack_datasets.probabilistic_coco_dataset", "ProbabilisticCocoDataset"),
+    }
+    if dataset_type not in dataset_map:
+        raise ValueError(f"Unsupported dataset type for visualization: {dataset_type}")
+    module_name, class_name = dataset_map[dataset_type]
+    module = importlib.import_module(module_name)
+    dataset_cls = getattr(module, class_name)
+    return dataset_cls(**cfg)
 
 BDD_CATEGORIES = [
     'pedestrian', 'rider', 'car', 'truck', 'bus', 'train', 'motorcycle',
@@ -101,7 +124,7 @@ def main():
               'and the blue bounding box denotes ID switch.')
 
     cfg = Config.fromfile(args.config)
-    dataset = build_dataset(cfg.data.val, dict(test_mode=True))
+    dataset = build_dataset_from_cfg(cfg.data.val)
     results = mmcv.load(args.result_file)
     
     #? Show track results specified by txt file if it exists

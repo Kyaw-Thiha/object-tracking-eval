@@ -3,14 +3,14 @@ import torch
 import numpy as np
 import lap
 
-from mmdet.core import bbox_overlaps
-from mmtrack.core.bbox import bbox_xyxy_to_cxcyah
-from core.utils import (
-    Bhattacharyya, Wasserstein, Mahalanobis, Hellinger, AIRM,
-    gaussian_entropy, bbox_xyxy_to_cxcywh, bbox_cov_xyxy_to_cxcywh,
+from core.utils.distance import AIRM, Bhattacharyya, Hellinger, Mahalanobis, Wasserstein
+from core.utils.probabilistic_utils import gaussian_entropy, get_ellipse_box
+from core.utils.transforms import (
     bbox_cov_xyxy_to_cxcyah,
-    get_ellipse_box
+    bbox_cov_xyxy_to_cxcywh,
+    bbox_xyxy_to_cxcywh,
 )
+from core.utils.box_ops import bbox_overlaps, bbox_xyxy_to_cxcyah
 from core.visualization import get_ellipse_params
 
 class ProbabilisticTracker(ABC):

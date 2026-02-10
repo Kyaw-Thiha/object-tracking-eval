@@ -11,7 +11,7 @@ from mmdet.core import eval_map
 from mmtrack.datasets import CocoVideoDataset
 import trackeval
 
-from core.utils import results2outs
+from core.utils.transforms import results2outs
 from core.visualization import get_ellipse_params
 
 @DATASETS.register_module()

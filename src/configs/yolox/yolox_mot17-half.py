@@ -9,7 +9,8 @@ DATA_ROOT = os.environ.get("DATA_ROOT", os.path.join(PROJECT_ROOT, "data"))
 
 _base_ = [
     '../_base_/models/yolox_x.py',
-    '../_base_/datasets/mot_challenge_det.py', '../_base_/default_runtime.py'
+    # REMOVED: dataset and runtime configs - using custom pipeline
+    # '../_base_/datasets/mot_challenge_det.py', '../_base_/default_runtime.py'
 ]
 USE_MMDET=True
 

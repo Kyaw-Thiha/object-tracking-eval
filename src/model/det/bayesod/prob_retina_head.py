@@ -11,9 +11,11 @@ from mmdet.core.utils import filter_scores_and_topk, select_single_mlvl
 from mmdet.models.builder import HEADS
 from mmdet.models.dense_heads import RetinaHead
 
-from core.utils import (
-    compute_probabilistic_weight, covariance2cholesky, compute_mean_covariance_torch,
-    clamp_log_variance, compute_mean_variance_torch
+from core.utils.loss_utils import clamp_log_variance, compute_probabilistic_weight
+from core.utils.probabilistic_utils import (
+    compute_mean_covariance_torch,
+    compute_mean_variance_torch,
+    covariance2cholesky,
 )
 
 

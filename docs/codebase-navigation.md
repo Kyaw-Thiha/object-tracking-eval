@@ -1,6 +1,8 @@
 # Codebase Navigation
 
-As the pipeline uses existing implementations for object tracking algorithms and the probabilistic detector from the UncertaintyTrack repository [Lee et al. 2024], this repository is a fork of UncertaintyTrack. 
+As the pipeline uses existing implementations for object tracking algorithms and the probabilistic detector from the UncertaintyTrack repository [Lee et al. 2024], this repository is a fork of UncertaintyTrack.
+
+This codebase now uses MMDet/MMTrack as a model zoo (configs + pretrained weights) while the evaluation and training pipelines are custom.
 
 The codebase can be found on GitHub at: GitHub - 
 [Allyn-Bao/UncertaintyTrack: Tweaked UncertaintyTrack as a pipeline for model evaluation](https://github.com/Allyn-Bao/UncertaintyTrack)
@@ -40,7 +42,7 @@ To let the pipeline run arbitrary detector models (including different covarianc
 
 ## Probabilistic YOLOX
 
-For the probabilistic YOLOX detector, the model head lives under `src/model/det/yolox/`. The training configuration with all hyperparameters is `src/configs/yolox/prob_yolox_x_es_mot17-half.py`, and the corresponding training entry point is `src/train.py`.
+For the probabilistic YOLOX detector, the model head lives under `src/model/det/yolox/`. The training configuration with all hyperparameters is `src/configs/yolox/prob_yolox_x_es_mot17-half.py`. Training uses the custom `src/train.py` loop with a dataloader factory (for example, `--dataloader-factory mot17_train_dataloader`).
 
 ## Object Trackers
 
