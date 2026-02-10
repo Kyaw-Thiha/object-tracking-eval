@@ -100,6 +100,18 @@ def _build_optimizer_from_cfg(detector: torch.nn.Module, cfg: Config, lr_overrid
         return torch.optim.AdamW(detector.parameters(), lr=lr)
 
     opt_cfg = dict(opt_cfg)
+    ignored_keys: list[str] = []
+    for mm_only_key in ("paramwise_cfg", "_delete_"):
+        if mm_only_key in opt_cfg:
+            ignored_keys.append(mm_only_key)
+            opt_cfg.pop(mm_only_key)
+
+    if ignored_keys:
+        print(
+            "[SMOKE] Warning: ignoring MM-only optimizer keys in smoke mode: "
+            + ", ".join(ignored_keys)
+        )
+
     opt_type = str(opt_cfg.pop("type", "AdamW"))
     cfg_lr = float(opt_cfg.pop("lr", 1e-4))
     lr = cfg_lr if lr_override is None else lr_override
