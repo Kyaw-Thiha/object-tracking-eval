@@ -5,12 +5,11 @@ import numpy as np
 import torch
 from typing import Optional, Tuple, Any
 from mmcv.runner import force_fp32
-from mmdet.core import bbox_overlaps
 
-from mmtrack.core.bbox import bbox_cxcyah_to_xyxy, bbox_xyxy_to_cxcyah
 from mmtrack.models.trackers import ByteTracker
 
 from core.utils import bbox_cov_xyxy_to_cxcyah
+from core.utils.box_ops import bbox_cxcyah_to_xyxy, bbox_overlaps, bbox_xyxy_to_cxcyah
 from .prob_tracker import ProbabilisticTracker
 
 
@@ -565,4 +564,3 @@ class ProbabilisticByteTracker(ByteTracker, ProbabilisticTracker):  # type: igno
 
         self.update(ids=ids, bboxes=bboxes, bbox_covs=bbox_covs, labels=labels, frame_ids=frame_id)
         return bboxes, bbox_covs, labels, ids
-

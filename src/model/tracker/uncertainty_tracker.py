@@ -4,10 +4,9 @@ import torch
 from typing import Optional, cast
 from addict import Dict
 from mmcv.runner import force_fp32
-from mmdet.core import bbox_overlaps
 
 from mmtrack.models.trackers import SortTracker, OCSORTTracker
-from mmtrack.core.bbox import bbox_cxcyah_to_xyxy
+from core.utils.box_ops import bbox_cxcyah_to_xyxy, bbox_overlaps
 
 from .prob_tracker import ProbabilisticTracker
 

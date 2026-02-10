@@ -4,14 +4,13 @@ import numpy as np
 import torch
 from typing import Any, Optional
 from mmcv.runner import force_fp32
-from mmdet.core import bbox_overlaps
 from motmetrics.lap import linear_sum_assignment
 
 from mmtrack.core import imrenormalize
-from mmtrack.core.bbox import bbox_xyxy_to_cxcyah
 from mmtrack.models.trackers import SortTracker
 
 from core.utils import bbox_cov_xyxy_to_cxcyah, gaussian_entropy, max_eigenvalue
+from core.utils.box_ops import bbox_overlaps, bbox_xyxy_to_cxcyah
 from .prob_tracker import ProbabilisticTracker
 from core.utils.analysis_utils import get_active_inactive  #! For analysis; remove later
 

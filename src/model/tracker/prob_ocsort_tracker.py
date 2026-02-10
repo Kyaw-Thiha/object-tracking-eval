@@ -6,12 +6,11 @@ import torch
 from typing import Optional, Tuple, Any, cast
 from addict import Dict
 from mmcv.runner import force_fp32
-from mmdet.core import bbox_overlaps
 
-from mmtrack.core.bbox import bbox_cxcyah_to_xyxy, bbox_xyxy_to_cxcyah
 from mmtrack.models.trackers import OCSORTTracker
 
 from core.utils import bbox_cov_xyxy_to_cxcyah
+from core.utils.box_ops import bbox_cxcyah_to_xyxy, bbox_overlaps, bbox_xyxy_to_cxcyah
 from .prob_tracker import ProbabilisticTracker
 
 

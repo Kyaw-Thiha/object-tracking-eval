@@ -9,7 +9,7 @@ from mmtrack.datasets import MOTChallengeDataset
 
 from core.utils import results2outs
 from core.visualization import get_ellipse_params
-from core.inference import interpolate_tracks
+from legacy.mmtrack_pipeline.inference import interpolate_tracks
 
 import pprint
 
