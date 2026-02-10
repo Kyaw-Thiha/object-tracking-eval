@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument('--work-dir', required=True, help='Directory to save logs and checkpoints')
     parser.add_argument('--device', default='cuda', choices=['cuda', 'cpu'], help='Device to use')
     parser.add_argument('--epochs', type=int, default=80, help='Number of training epochs')
-    parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate')
+    parser.add_argument('--lr', type=float, default=None, help='Learning rate override (defaults to config optimizer lr)')
     parser.add_argument('--batch-size', type=int, default=4, help='Batch size')
     parser.add_argument('--seed', type=int, default=None, help='Random seed')
     parser.add_argument('--dataloader-factory', required=True,
@@ -47,6 +47,30 @@ def import_dataloader_factory(factory_name: str):
         raise ValueError(f"Factory '{factory_name}' not found in data.dataloaders/")
     except AttributeError:
         raise ValueError(f"Factory '{factory_name}' does not define a 'factory' function")
+
+
+def build_optimizer(detector: torch.nn.Module, cfg: Config, lr_override: float | None):
+    """Build optimizer from config, with optional CLI lr override."""
+    opt_cfg = cfg.get('optimizer', None)
+    if opt_cfg is None:
+        lr = 1e-4 if lr_override is None else lr_override
+        optimizer = torch.optim.AdamW(detector.parameters(), lr=lr)
+        return optimizer, f"AdamW(lr={lr}) [default]"
+
+    opt_cfg = dict(opt_cfg)
+    opt_type = str(opt_cfg.pop('type', 'AdamW'))
+    cfg_lr = float(opt_cfg.pop('lr', 1e-4))
+    lr = cfg_lr if lr_override is None else lr_override
+
+    if opt_type == 'AdamW':
+        optimizer = torch.optim.AdamW(detector.parameters(), lr=lr, **opt_cfg)
+    elif opt_type == 'Adam':
+        optimizer = torch.optim.Adam(detector.parameters(), lr=lr, **opt_cfg)
+    elif opt_type == 'SGD':
+        optimizer = torch.optim.SGD(detector.parameters(), lr=lr, **opt_cfg)
+    else:
+        raise ValueError(f"Unsupported optimizer type in config: {opt_type}")
+    return optimizer, f"{opt_type}(lr={lr})"
 
 
 def main():
@@ -85,8 +109,8 @@ def main():
     print(f"[INFO] Detector initialized with {sum(p.numel() for p in detector.parameters())} parameters")
 
     # Setup optimizer
-    optimizer = torch.optim.AdamW(detector.parameters(), lr=args.lr)
-    print(f"[INFO] Optimizer: AdamW with lr={args.lr}")
+    optimizer, optimizer_desc = build_optimizer(detector, cfg, args.lr)
+    print(f"[INFO] Optimizer: {optimizer_desc}")
 
     # Setup dataloader
     print(f"[INFO] Loading dataloader factory: {args.dataloader_factory}")

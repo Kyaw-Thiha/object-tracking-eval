@@ -116,6 +116,11 @@ Fusion models will likely require extending data ingestion:
 - **Early fusion**: merge modalities before the detector.
   - Suggested: implement fusion logic inside a new Producer under
     `src/data/producers/` and have dataloaders return fused tensors.
+  - Example: `src/data/producers/rrpn.py` generates region proposals from radar
+    detections projected to camera coordinates.
+  - See `docs/rrpn.md` for the RRPN usage and command reference.
+  - For RRPN probabilistic training specifics (NLL heads and troubleshooting),
+    see `docs/rrpn.md`.
 
 - **Mid fusion**: fuse features inside the model.
   - Suggested: implement in `src/model/det/` with multiple backbones/streams.
@@ -136,3 +141,32 @@ Producer outputs in `src/data/schema/` and `src/data/producers/`.
 
 - Run `src/evaluation_pipeline.py` on a small subset to confirm output format.
 - Use `--annotate-videos` to visually validate IDs, boxes, and covariance.
+
+### Smoke Pipeline
+
+Use `src/smoke_pipeline.py` for fast preflight checks before full eval/training runs.
+
+Eval smoke:
+
+```bash
+python src/smoke_pipeline.py eval \
+  --dataloader_factory <your_factory> \
+  --model_factory <your_model_factory> \
+  --device cpu \
+  --num_batches 1 \
+  --with_context auto \
+  --tracker uncertainty_tracker \
+  --strict
+```
+
+Train smoke:
+
+```bash
+python src/smoke_pipeline.py train \
+  --dataloader_factory <your_train_factory> \
+  --config <config.py> \
+  --device cpu \
+  --num_batches 1 \
+  --lr 1e-4 \
+  --strict
+```

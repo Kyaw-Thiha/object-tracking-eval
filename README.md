@@ -33,8 +33,8 @@ pip install -r requirements.txt
 The inference script is `src/evaluation_pipeline.py`.
 
 ## Detection Model requirements
-Assure a model builder script is saved under src/model_factory, which must contain function factory(torch.device), which returns the model instance.
-Detection model must accept batch image tensor input in the dimention of (B, 3, H, W). input image tensors are already rescaled to 640x640.
+Assure a model builder script is saved under `src/model/factory`, which must contain function `factory(device)`, which returns the model instance.
+Detection model must accept batch image tensor input in the dimension of `(B, 3, H, W)`. Input image size is producer/dataloader dependent (not fixed to `640x640`).
 Model instance must have a class method model.infer(imgs).
 model.infer(imgs) must return detection result in a tuple of 3 elements, it is expected:
 ```
@@ -59,4 +59,30 @@ python3.10 src/train.py \
     --epochs 80 \
     --lr 1e-4 \
     --batch-size 4
+```
+
+# Smoke Checks (Eval + Train)
+Use `src/smoke_pipeline.py` to run short integration checks before full runs.
+
+Eval smoke:
+```bash
+python src/smoke_pipeline.py eval \
+  --dataloader_factory <your_factory> \
+  --model_factory <your_model_factory> \
+  --device cpu \
+  --num_batches 1 \
+  --with_context auto \
+  --tracker uncertainty_tracker \
+  --strict
+```
+
+Train smoke:
+```bash
+python src/smoke_pipeline.py train \
+  --dataloader_factory <your_train_factory> \
+  --config <config.py> \
+  --device cpu \
+  --num_batches 1 \
+  --lr 1e-4 \
+  --strict
 ```
