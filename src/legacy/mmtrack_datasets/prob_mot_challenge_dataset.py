@@ -7,7 +7,7 @@ from mmcv.utils import print_log
 from mmdet.datasets import DATASETS
 from mmtrack.datasets import MOTChallengeDataset
 
-from core.utils import results2outs
+from core.utils.transforms import results2outs
 from core.visualization import get_ellipse_params
 from legacy.mmtrack_pipeline.inference import interpolate_tracks
 

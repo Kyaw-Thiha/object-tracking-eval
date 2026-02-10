@@ -5,7 +5,7 @@ from mmdet.models.builder import LOSSES
 from mmdet.models.losses.smooth_l1_loss import smooth_l1_loss, l1_loss
 from mmdet.models.losses.utils import weight_reduce_loss
 
-from core.utils import covariance2cholesky
+from core.utils.probabilistic_utils import covariance2cholesky
 
 
 @LOSSES.register_module()

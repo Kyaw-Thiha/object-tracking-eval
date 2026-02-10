@@ -9,7 +9,7 @@ from scalabel.label.typing import Frame, Label, Dataset
 from tqdm import tqdm
 from typing import Any, List, Optional, Union
 
-from core.utils import bbox_xyxy_to_xywh
+from core.utils.transforms import bbox_xyxy_to_xywh
 
 
 BDD_CATEGORIES = [

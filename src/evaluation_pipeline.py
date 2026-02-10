@@ -15,7 +15,7 @@ from model.tracker.prob_byte_tracker import ProbabilisticByteTracker
 from model.tracker.prob_ocsort_tracker import ProbabilisticOCSORTTracker
 from model.kalman_filter_uncertainty import KalmanFilterWithUncertainty
 
-from core.utils import outs2results
+from core.utils.transforms import outs2results
 
 import argparse
 import importlib

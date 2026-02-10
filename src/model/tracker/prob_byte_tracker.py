@@ -8,7 +8,7 @@ from mmcv.runner import force_fp32
 
 from mmtrack.models.trackers import ByteTracker
 
-from core.utils import bbox_cov_xyxy_to_cxcyah
+from core.utils.transforms import bbox_cov_xyxy_to_cxcyah
 from core.utils.box_ops import bbox_cxcyah_to_xyxy, bbox_overlaps, bbox_xyxy_to_cxcyah
 from .prob_tracker import ProbabilisticTracker
 
