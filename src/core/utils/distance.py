@@ -2,8 +2,7 @@ from abc import ABC, abstractmethod
 import torch
 import numpy as np
 
-from mmdet.core import bbox_overlaps
-from mmtrack.core.bbox import bbox_cxcyah_to_xyxy
+from .box_ops import bbox_cxcyah_to_xyxy, bbox_overlaps
 
 
 class Distance(ABC):

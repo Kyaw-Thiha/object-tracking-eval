@@ -13,6 +13,7 @@ from .distance import (
     KLDivergence, JRDivergence, Bhattacharyya, Wasserstein, Mahalanobis,
     Hellinger, AIRM, GIoU
 )
+from .box_ops import bbox_overlaps, bbox_xyxy_to_cxcyah, bbox_cxcyah_to_xyxy
 
 __all__ = [
     'compute_probabilistic_weight', 'covariance2cholesky', 'compute_mean_covariance_torch', 
@@ -21,5 +22,6 @@ __all__ = [
     'Hellinger', 'AIRM', 'gaussian_entropy', 'max_eigenvalue', 'GIoU',
     'compute_mean_variance_torch', 'results2outs', 'product_of_gaussians', 'covariance_intersection',
     'bbox_xyxy_to_cxcywh', 'bbox_cov_xyxy_to_cxcywh', 'bbox_cxcywh_to_xyxy',
-    'get_ellipse_box', 'outs2results', 'bbox_xyxy_to_xywh'
+    'get_ellipse_box', 'outs2results', 'bbox_xyxy_to_xywh',
+    'bbox_overlaps', 'bbox_xyxy_to_cxcyah', 'bbox_cxcyah_to_xyxy'
 ]

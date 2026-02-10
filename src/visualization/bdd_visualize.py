@@ -1,6 +1,7 @@
 import argparse
 import os
 import os.path as osp
+import sys
 from pathlib import Path
 
 import mmcv
@@ -12,9 +13,13 @@ from mmcv.utils import print_log
 
 from mmtrack.datasets import build_dataset
 
-from core import *
-
 SRC_ROOT = Path(__file__).resolve().parent
+SRC_DIR = Path(__file__).resolve().parents[1]
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from core.evaluation.eval_mot import get_mot_acc
+from core.visualization.mot import imshow_mot_errors
 
 BDD_CATEGORIES = [
     'pedestrian', 'rider', 'car', 'truck', 'bus', 'train', 'motorcycle',

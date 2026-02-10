@@ -1,8 +1,6 @@
 import torch
 import numpy as np
 
-from mmdet.core import bbox2result
-
 #* --------------------------------------------------------
 #* Detection utils
 #* --------------------------------------------------------
@@ -39,6 +37,17 @@ def bbox_and_cov2result(bboxes, bbox_covs, labels, num_classes):
         bbox_cov_out = [bbox_covs[labels == i, :] for i in range(num_classes)]
 
     return {'bbox': bbox_out, 'bbox_cov': bbox_cov_out}
+
+
+def _bbox2result_local(bboxes, labels, num_classes):
+    """Local replacement for mmdet.core.bbox2result."""
+    if isinstance(bboxes, torch.Tensor):
+        bboxes = bboxes.detach().cpu().numpy()
+    if isinstance(labels, torch.Tensor):
+        labels = labels.detach().cpu().numpy()
+    if bboxes.shape[0] == 0:
+        return [np.zeros((0, 5), dtype=np.float32) for _ in range(num_classes)]
+    return [bboxes[labels == i, :] for i in range(num_classes)]
 
 def bbox_cov_xyxy_to_cxcyah(cov_xyxy, a_var=1e-1):
     """Convert covariance matrices of bbox coordinates from (x1, y1, x2, y2) to (cx, cy, a, h),
@@ -284,7 +293,7 @@ def outs2results(bboxes=None,
                 ]
                 bbox_cov_results = [bbox_covs[labels == i, :] for i in range(num_classes)]
         else:
-            bbox_results = bbox2result(bboxes, labels, num_classes)
+            bbox_results = _bbox2result_local(bboxes, labels, num_classes)
             bbox_cov_results = None
         results['bbox_results'] = bbox_results
         results['bbox_cov_results'] = bbox_cov_results

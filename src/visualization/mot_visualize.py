@@ -2,6 +2,8 @@
 import argparse
 import os
 import os.path as osp
+import sys
+from pathlib import Path
 
 import mmcv
 import motmetrics as mm
@@ -12,7 +14,12 @@ from mmcv.utils import print_log
 
 from mmtrack.datasets import build_dataset
 
-from core import *
+# Keep behavior consistent when invoked from repo root or src/.
+SRC_DIR = Path(__file__).resolve().parents[1]
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from core.visualization.mot import imshow_mot_errors
 
 
 def parse_args():
