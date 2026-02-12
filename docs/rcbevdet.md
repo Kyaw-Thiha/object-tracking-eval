@@ -37,3 +37,12 @@
 | Image Backbone | ResNet-18 or DLA-34 |
 | BEV Size | 64 × 64 |
 | Radar Sweeps | 4 frames |
+
+## Compile Ops
+
+Run from repo root:
+
+```bash
+python src/model/det/rcbevdet/ops/deformattn/setup.py build_ext --inplace && \
+python src/model/det/rcbevdet/ops/bev_pool_v2/setup.py build_ext --inplace
+```
