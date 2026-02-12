@@ -5,14 +5,14 @@ from typing import Any, Optional, Sequence, cast
 
 from torch import nn as nn
 
-from . import builder
-from .builder import DETECTORS
+from .. import registry as builder
+from ..registry import DETECTORS
 from .centerpoint import CenterPoint
 from mmdet.models.backbones.resnet import ResNet
 from mmcv.ops import Voxelization
 from einops import rearrange
-from .ops.ms_deform_attn import MSDeformAttn, LearnedPositionalEncoding3D
-from .nn_utils import ConvModule, force_fp32, normal_init
+from ..ops.ms_deform_attn import MSDeformAttn, LearnedPositionalEncoding3D
+from ..core.nn_utils import ConvModule, force_fp32, normal_init
 
 class RadarConvFuser(nn.Module):
     def __init__(self, in_channels: Sequence[int], out_channels: int, deconv_blocks: int) -> None:
@@ -86,26 +86,34 @@ class BEVDet_RC(CenterPoint):
                 bev_size=128,
                 **kwargs):
         super(BEVDet_RC, self).__init__(**kwargs)
-        self.img_view_transformer = builder.build_neck(img_view_transformer)
-        self.img_bev_encoder_backbone = builder.build_backbone(img_bev_encoder_backbone)
-        self.img_bev_encoder_neck = builder.build_neck(img_bev_encoder_neck)
+        self.img_view_transformer: nn.Module = cast(nn.Module, builder.build_neck(img_view_transformer))
+        self.img_bev_encoder_backbone: nn.Module = cast(nn.Module, builder.build_backbone(img_bev_encoder_backbone))
+        self.img_bev_encoder_neck: nn.Module = cast(nn.Module, builder.build_neck(img_bev_encoder_neck))
+        self.radar_voxel_layer: Optional[Any] = None
+        self.pts_pillar_layer: Optional[Any] = None
+        self.pts_voxel_encoder: Optional[nn.Module] = None
+        self.radar_voxel_encoder: Optional[nn.Module] = None
+        self.radar_middle_encoder: Optional[nn.Module] = None
+        self.radar_bev_backbone: Optional[nn.Module] = None
+        self.radar_bev_neck: Optional[nn.Module] = None
+        self.imgpts_neck: Optional[nn.Module] = None
         #new
         if radar_voxel_layer is not None:
             self.radar_voxel_layer = Voxelization(**radar_voxel_layer)
         if pts_pillar_layer is not None:
             self.pts_pillar_layer = Voxelization(**pts_pillar_layer)
         if pts_voxel_encoder is not None:
-            self.pts_voxel_encoder = builder.build_voxel_encoder(pts_voxel_encoder)
+            self.pts_voxel_encoder = cast(nn.Module, builder.build_voxel_encoder(pts_voxel_encoder))
         if radar_voxel_encoder is not None:
-            self.radar_voxel_encoder = builder.build_voxel_encoder(radar_voxel_encoder)
+            self.radar_voxel_encoder = cast(nn.Module, builder.build_voxel_encoder(radar_voxel_encoder))
         if radar_middle_encoder is not None:
-            self.radar_middle_encoder = builder.build_middle_encoder(radar_middle_encoder)
+            self.radar_middle_encoder = cast(nn.Module, builder.build_middle_encoder(radar_middle_encoder))
         if radar_bev_backbone is not None:
-            self.radar_bev_backbone = builder.build_backbone(radar_bev_backbone)
+            self.radar_bev_backbone = cast(nn.Module, builder.build_backbone(radar_bev_backbone))
         if radar_bev_neck is not None:
-            self.radar_bev_neck = builder.build_neck(radar_bev_neck)
+            self.radar_bev_neck = cast(nn.Module, builder.build_neck(radar_bev_neck))
         if imgpts_neck is not None:
-            self.imgpts_neck = builder.build_neck(imgpts_neck)
+            self.imgpts_neck = cast(nn.Module, builder.build_neck(imgpts_neck))
         
         self.bev_size = bev_size
 
@@ -170,6 +178,8 @@ class BEVDet_RC(CenterPoint):
                 per voxel, and coordinates.
         """
         voxels, coors, num_points = [], [], []
+        if self.radar_voxel_layer is None:
+            raise RuntimeError("radar_voxel_layer is missing.")
         for res in points:
             # print(res.shape)
             res_voxels, res_coors, res_num_points = self.radar_voxel_layer(res)
@@ -222,9 +232,11 @@ class BEVDet_RC(CenterPoint):
 
     def extract_img_feat(self, img, img_metas, **kwargs):
         """Extract features of images."""
+        del img_metas, kwargs
         img = self.prepare_inputs(img)
         x, _ = self.image_encoder(img[0])
-        x, depth = self.img_view_transformer([x] + img[1:7])
+        img_view_transformer = cast(Any, self.img_view_transformer)
+        x, depth = img_view_transformer([x] + img[1:7])
         # print(x.shape)
         x = self.bev_encoder(x)
         # print(x.shape)
@@ -234,8 +246,11 @@ class BEVDet_RC(CenterPoint):
 
     def extract_radar_feat(self, radar, img_metas):
         """Extract features of points."""
+        del img_metas
 
         voxels, num_points, coors = self.radar_voxelize(radar)
+        if self.radar_voxel_encoder is None or self.radar_middle_encoder is None:
+            raise RuntimeError("radar voxel/middle encoder is missing.")
         voxel_features = self.radar_voxel_encoder(voxels, num_points, coors)
         batch_size = coors[-1, 0] + 1
         x = self.radar_middle_encoder(voxel_features, coors, batch_size)
@@ -538,8 +553,9 @@ class BEVDet4D_RC(BEVDet_RC):
                  **kwargs):
         super(BEVDet4D_RC, self).__init__(**kwargs)
         self.pre_process = pre_process is not None
+        self.pre_process_net: Optional[nn.Module] = None
         if self.pre_process:
-            self.pre_process_net = builder.build_backbone(pre_process)
+            self.pre_process_net = cast(nn.Module, builder.build_backbone(pre_process))
         self.align_after_view_transfromation = align_after_view_transfromation
         self.num_frame = num_adj + 1
 
@@ -639,10 +655,11 @@ class BEVDet4D_RC(BEVDet_RC):
                                                     [True, True, False, True]]
 
         feat2bev = torch.zeros((3, 3), dtype=grid.dtype).to(grid)
-        feat2bev[0, 0] = self.img_view_transformer.grid_interval[0]
-        feat2bev[1, 1] = self.img_view_transformer.grid_interval[1]
-        feat2bev[0, 2] = self.img_view_transformer.grid_lower_bound[0]
-        feat2bev[1, 2] = self.img_view_transformer.grid_lower_bound[1]
+        img_view_transformer = cast(Any, self.img_view_transformer)
+        feat2bev[0, 0] = img_view_transformer.grid_interval[0]
+        feat2bev[1, 1] = img_view_transformer.grid_interval[1]
+        feat2bev[0, 2] = img_view_transformer.grid_lower_bound[0]
+        feat2bev[1, 2] = img_view_transformer.grid_lower_bound[1]
         feat2bev[2, 2] = 1
         feat2bev = feat2bev.view(1, 3, 3)
         tf = torch.inverse(feat2bev).matmul(l02l1).matmul(feat2bev)
@@ -665,9 +682,12 @@ class BEVDet4D_RC(BEVDet_RC):
     def prepare_bev_feat(self, img, rot, tran, intrin, post_rot, post_tran,
                          bda, mlp_input):
         x, _ = self.image_encoder(img)
-        bev_feat, depth = self.img_view_transformer(
+        img_view_transformer = cast(Any, self.img_view_transformer)
+        bev_feat, depth = img_view_transformer(
             [x, rot, tran, intrin, post_rot, post_tran, bda, mlp_input])
         if self.pre_process:
+            if self.pre_process_net is None:
+                raise RuntimeError("pre_process_net is missing.")
             bev_feat = self.pre_process_net(bev_feat)[0]
         return bev_feat, depth
 
@@ -675,7 +695,8 @@ class BEVDet4D_RC(BEVDet_RC):
         imgs, sensor2keyegos_curr, ego2globals_curr, intrins = inputs[:4]
         sensor2keyegos_prev, _, post_rots, post_trans, bda = inputs[4:]
         bev_feat_list = []
-        mlp_input = self.img_view_transformer.get_mlp_input(
+        img_view_transformer = cast(Any, self.img_view_transformer)
+        mlp_input = img_view_transformer.get_mlp_input(
             sensor2keyegos_curr[0:1, ...], ego2globals_curr[0:1, ...],
             intrins, post_rots, post_trans, bda[0:1, ...])
         inputs_curr = (imgs, sensor2keyegos_curr[0:1, ...],
@@ -775,7 +796,8 @@ class BEVDet4D_RC(BEVDet_RC):
             if key_frame or self.with_prev:
                 if self.align_after_view_transfromation:
                     sensor2keyego, ego2global = sensor2keyegos[0], ego2globals[0]
-                mlp_input = self.img_view_transformer.get_mlp_input(
+                img_view_transformer = cast(Any, self.img_view_transformer)
+                mlp_input = img_view_transformer.get_mlp_input(
                     sensor2keyegos[0], ego2globals[0], intrin, post_rot, post_tran, bda)
                 inputs_curr = (img, sensor2keyego, ego2global, intrin, post_rot,
                                post_tran, bda, mlp_input)
@@ -863,7 +885,8 @@ class BEVDepth4D_RC(BEVDet4D_RC):
         img_feats, pts_feats, depth = self.extract_feat(
             points, img=img_inputs, img_metas=img_metas, **kwargs,radar=radar, gt_bboxes_3d=gt_bboxes_3d)
         gt_depth = kwargs['gt_depth']
-        loss_depth = self.img_view_transformer.get_depth_loss(gt_depth, depth)
+        img_view_transformer = cast(Any, self.img_view_transformer)
+        loss_depth = img_view_transformer.get_depth_loss(gt_depth, depth)
         losses = dict(loss_depth=loss_depth)
         losses_pts = self.forward_pts_train(img_feats, gt_bboxes_3d,
                                             gt_labels_3d, gt_masks_bev,
@@ -875,7 +898,7 @@ class BEVDepth4D_RC(BEVDet4D_RC):
 class BEVDepth4D_RC_d2t(BEVDepth4D_RC):
     def __init__(self,img_down2top_encoder_backbone, **kwargs):
         super(BEVDepth4D_RC_d2t, self).__init__(**kwargs)
-        self.img_down2top_encoder_backbone = builder.build_backbone(img_down2top_encoder_backbone)
+        self.img_down2top_encoder_backbone = cast(nn.Module, builder.build_backbone(img_down2top_encoder_backbone))
 
 
 @DETECTORS.register_module()
@@ -925,19 +948,22 @@ class BEVStereo4D_RC(BEVDepth4D_RC):
             stereo_feat = self.extract_stereo_ref_feat(img)
             return None, None, stereo_feat
         x, stereo_feat = self.image_encoder(img, stereo=True)
+        img_view_transformer = cast(Any, self.img_view_transformer)
         metas = dict(k2s_sensor=k2s_sensor,
                      intrins=intrin,
                      post_rots=post_rot,
                      post_trans=post_tran,
-                     frustum=self.img_view_transformer.cv_frustum.to(x),
+                     frustum=img_view_transformer.cv_frustum.to(x),
                      cv_downsample=4,
-                     downsample=self.img_view_transformer.downsample,
-                     grid_config=self.img_view_transformer.grid_config,
+                     downsample=img_view_transformer.downsample,
+                     grid_config=img_view_transformer.grid_config,
                      cv_feat_list=[feat_prev_iv, stereo_feat])
-        bev_feat, depth = self.img_view_transformer(
+        bev_feat, depth = img_view_transformer(
             [x, sensor2keyego, ego2global, intrin, post_rot, post_tran, bda,
              mlp_input], metas)
         if self.pre_process:
+            if self.pre_process_net is None:
+                raise RuntimeError("pre_process_net is missing.")
             bev_feat = self.pre_process_net(bev_feat)[0]
         return bev_feat, depth, stereo_feat
 
@@ -966,7 +992,8 @@ class BEVStereo4D_RC(BEVDepth4D_RC):
             if key_frame or self.with_prev:
                 if self.align_after_view_transfromation:
                     sensor2keyego, ego2global = sensor2keyegos[0], ego2globals[0]
-                mlp_input = self.img_view_transformer.get_mlp_input(
+                img_view_transformer = cast(Any, self.img_view_transformer)
+                mlp_input = img_view_transformer.get_mlp_input(
                     sensor2keyegos[0], ego2globals[0], intrin,
                     post_rot, post_tran, bda)
                 inputs_curr = (img, sensor2keyego, ego2global, intrin,

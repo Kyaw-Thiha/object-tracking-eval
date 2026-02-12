@@ -6,8 +6,8 @@ from torch import nn
 from torch.nn import functional as F
 from timm.layers.drop import DropPath
 from timm.layers.mlp import Mlp
-from .builder import BACKBONES
-from .nn_utils import build_norm_layer
+from ..registry import BACKBONES
+from ..core.nn_utils import build_norm_layer
 
 def get_paddings_indicator(actual_num, max_num, axis=0):
     """Create boolean mask by actually number of a padded tensor.

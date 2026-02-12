@@ -4,8 +4,8 @@ import torch
 import torch.utils.checkpoint as checkpoint
 from torch import nn
 
-from .nn_utils import BasicBlock, Bottleneck, ConvModule
-from .builder import BACKBONES
+from ..core.nn_utils import BasicBlock, Bottleneck, ConvModule
+from ..registry import BACKBONES
 
 
 @BACKBONES.register_module()

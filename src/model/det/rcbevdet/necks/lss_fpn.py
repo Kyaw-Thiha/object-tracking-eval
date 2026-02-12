@@ -3,8 +3,8 @@ import torch.nn as nn
 from typing import Optional
 
 from torch.utils.checkpoint import checkpoint
-from .nn_utils import ConvModule, build_norm_layer
-from .builder import NECKS
+from ..core.nn_utils import ConvModule, build_norm_layer
+from ..registry import NECKS
 
 
 @NECKS.register_module()

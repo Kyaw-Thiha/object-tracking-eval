@@ -8,7 +8,7 @@ import torch
 from torch import nn
 from mmcv.ops import Voxelization
 
-from . import builder
+from .. import registry as builder
 
 
 def bbox3d2result(bboxes, scores, labels, attrs=None):

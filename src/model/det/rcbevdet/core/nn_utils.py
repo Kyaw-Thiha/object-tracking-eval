@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional, Tuple, TypeVar, cast
+from typing import Any, Callable, Dict, Optional, Tuple, TypeVar, cast, overload
 
 import torch
 import torch.nn as nn
@@ -147,12 +147,22 @@ def normal_init(module: nn.Module, mean: float = 0.0, std: float = 1.0, bias: fl
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-def force_fp32(*dargs, **dkwargs):
+@overload
+def force_fp32(func: F) -> F:
+    ...
+
+
+@overload
+def force_fp32(*dargs: Any, **dkwargs: Any) -> Callable[[F], F]:
+    ...
+
+
+def force_fp32(*dargs: Any, **dkwargs: Any):
     """No-op replacement for mmcv.runner.force_fp32 decorator."""
     _ = dkwargs
 
     if len(dargs) == 1 and callable(dargs[0]):
-        return dargs[0]
+        return cast(F, dargs[0])
 
     def deco(func: F) -> F:
         return func

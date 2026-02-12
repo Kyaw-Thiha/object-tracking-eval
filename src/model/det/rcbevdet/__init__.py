@@ -1,6 +1,65 @@
-"""RCBEVDet package.
+"""RCBEVDet package."""
 
-Keep package import lightweight; import concrete modules directly where needed.
-"""
+from .registry import (
+    BACKBONES,
+    DETECTORS,
+    HEADS,
+    MIDDLE_ENCODERS,
+    NECKS,
+    VOXEL_ENCODERS,
+    build_backbone,
+    build_detector,
+    build_head,
+    build_middle_encoder,
+    build_neck,
+    build_voxel_encoder,
+)
+from .backbones import CustomResNet, CustomResNet3D, Down2TopResNet, RadarBEVNet, SECOND
+from .detectors import BEVDepth4D_RC, BEVDepth4D_RC_d2t, BEVDet4D_RC, BEVDet_RC, BEVStereo4D_RC, CenterPoint
+from .middle_encoders import PointPillarsScatter, PointPillarsScatterRCS
+from .necks import (
+    CustomSECONDFPN,
+    FPN_LSS,
+    LSSFPN3D,
+    LSSViewTransformer,
+    LSSViewTransformerBEVDepth,
+    LSSViewTransformerBEVStereo,
+    LSSViewTransformerVOD,
+    SECONDFPN,
+)
 
-__all__ = []
+__all__ = [
+    "BACKBONES",
+    "NECKS",
+    "MIDDLE_ENCODERS",
+    "VOXEL_ENCODERS",
+    "DETECTORS",
+    "HEADS",
+    "build_backbone",
+    "build_neck",
+    "build_middle_encoder",
+    "build_voxel_encoder",
+    "build_detector",
+    "build_head",
+    "CustomResNet",
+    "Down2TopResNet",
+    "CustomResNet3D",
+    "SECOND",
+    "RadarBEVNet",
+    "CenterPoint",
+    "BEVDet_RC",
+    "BEVDet4D_RC",
+    "BEVDepth4D_RC",
+    "BEVDepth4D_RC_d2t",
+    "BEVStereo4D_RC",
+    "PointPillarsScatter",
+    "PointPillarsScatterRCS",
+    "FPN_LSS",
+    "LSSFPN3D",
+    "SECONDFPN",
+    "CustomSECONDFPN",
+    "LSSViewTransformer",
+    "LSSViewTransformerBEVDepth",
+    "LSSViewTransformerBEVStereo",
+    "LSSViewTransformerVOD",
+]

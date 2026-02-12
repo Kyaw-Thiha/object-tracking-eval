@@ -9,9 +9,9 @@ from torch.cuda.amp.autocast_mode import autocast
 from torch.utils.checkpoint import checkpoint
 
 
-from .ops.bev_pool_v2.bev_pool import bev_pool_v2
+from ..ops.bev_pool_v2.bev_pool import bev_pool_v2
 from mmdet.models.backbones.resnet import BasicBlock
-from .builder import NECKS
+from ..registry import NECKS
 
 
 @NECKS.register_module()

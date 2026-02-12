@@ -3,8 +3,8 @@ import torch
 from mmcv.runner import auto_fp16
 from torch import nn
 
-from .builder import MIDDLE_ENCODERS
-from .gaussian import draw_heatmap_gaussian, draw_heatmap_gaussian_feat
+from ..registry import MIDDLE_ENCODERS
+from ..core.gaussian import draw_heatmap_gaussian, draw_heatmap_gaussian_feat
 
 
 @MIDDLE_ENCODERS.register_module()
