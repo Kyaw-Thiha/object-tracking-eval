@@ -37,3 +37,6 @@ outputs/
 evaluation_results/
 plots/
 work_dirs/
+
+# Build Folder
+build/

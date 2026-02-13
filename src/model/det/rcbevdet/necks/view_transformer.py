@@ -49,6 +49,7 @@ class LSSViewTransformer(BaseModule):
         accelerate=False,
         sid=False,
         collapse_z=True,
+        bev_pool_backend="auto",
     ):
         super(LSSViewTransformer, self).__init__()
         self.grid_config = grid_config
@@ -68,6 +69,9 @@ class LSSViewTransformer(BaseModule):
         self.accelerate = accelerate
         self.initial_flag = True
         self.collapse_z = collapse_z
+        if bev_pool_backend not in {"auto", "cuda_ext", "torch"}:
+            raise ValueError(f"Invalid bev_pool_backend: {bev_pool_backend}")
+        self.bev_pool_backend = bev_pool_backend
 
     def create_grid_infos(self, x, y, z, **kwargs):
         """Generate the grid information including the lower bound, interval,
@@ -205,8 +209,8 @@ class LSSViewTransformer(BaseModule):
                           int(self.grid_size[1]), int(self.grid_size[0]),
                           feat.shape[-1])  # (B, Z, Y, X, C)
         bev_feat = bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev,
-                               bev_feat_shape, interval_starts,
-                               interval_lengths)
+                               bev_feat_shape, interval_starts, interval_lengths,
+                               backend=self.bev_pool_backend)
         # collapse Z
         if self.collapse_z:
             bev_feat = torch.cat(bev_feat.unbind(dim=2), 1)
@@ -228,17 +232,17 @@ class LSSViewTransformer(BaseModule):
         B, N, D, H, W, _ = coor.shape
         num_points = B * N * D * H * W
         # record the index of selected points for acceleration purpose
-        ranks_depth = torch.range(
-            0, num_points - 1, dtype=torch.int, device=coor.device)
-        ranks_feat = torch.range(
-            0, num_points // D - 1, dtype=torch.int, device=coor.device)
+        ranks_depth = torch.arange(
+            0, num_points, dtype=torch.int, device=coor.device)
+        ranks_feat = torch.arange(
+            0, num_points // D, dtype=torch.int, device=coor.device)
         ranks_feat = ranks_feat.reshape(B, N, 1, H, W)
         ranks_feat = ranks_feat.expand(B, N, D, H, W).flatten()
         # convert coordinate into the voxel space
         coor = ((coor - self.grid_lower_bound.to(coor)) /
                 self.grid_interval.to(coor))
         coor = coor.long().view(num_points, 3)
-        batch_idx = torch.range(0, B - 1).reshape(B, 1). \
+        batch_idx = torch.arange(0, B, device=coor.device, dtype=torch.int).reshape(B, 1). \
             expand(B, num_points // B).reshape(num_points, 1).to(coor)
         coor = torch.cat((coor, batch_idx), 1)
 
@@ -292,7 +296,8 @@ class LSSViewTransformer(BaseModule):
             bev_feat = bev_pool_v2(depth, feat, self.ranks_depth,
                                    self.ranks_feat, self.ranks_bev,
                                    bev_feat_shape, self.interval_starts,
-                                   self.interval_lengths)
+                                   self.interval_lengths,
+                                   backend=self.bev_pool_backend)
 
             bev_feat = bev_feat.squeeze(2)
         else:

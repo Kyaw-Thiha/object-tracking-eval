@@ -6,7 +6,7 @@ from torch import nn
 from torch.nn import functional as F
 from timm.layers.drop import DropPath
 from timm.layers.mlp import Mlp
-from ..registry import BACKBONES
+from ..registry import BACKBONES, VOXEL_ENCODERS
 from ..core.nn_utils import build_norm_layer
 
 def get_paddings_indicator(actual_num, max_num, axis=0):
@@ -267,6 +267,7 @@ class DMSA(nn.Module):
 
 
 @BACKBONES.register_module()
+@VOXEL_ENCODERS.register_module()
 class RadarBEVNet(nn.Module):
     def __init__(
         self,

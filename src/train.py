@@ -34,6 +34,8 @@ def parse_args():
                         help='Dataloader factory module name (e.g., mot17_train_dataloader)')
     parser.add_argument('--save-interval', type=int, default=10,
                         help='Save checkpoint every N epochs')
+    parser.add_argument('--bev-pool-backend', default=None, choices=['auto', 'cuda_ext', 'torch'],
+                        help='Override RCBEVDet BEV pooling backend from config')
     return parser.parse_args()
 
 
@@ -88,6 +90,13 @@ def main():
     # Load model config (MM config for architecture definition)
     print(f"[INFO] Loading config from {args.config}")
     cfg = Config.fromfile(args.config)
+    if args.bev_pool_backend is not None:
+        model_cfg = cfg.model.detector if 'detector' in cfg.model else cfg.model
+        if hasattr(model_cfg, "img_view_transformer"):
+            model_cfg.img_view_transformer.bev_pool_backend = args.bev_pool_backend
+            print(f"[INFO] Overriding bev_pool_backend={args.bev_pool_backend}")
+        else:
+            print("[WARN] --bev-pool-backend provided but model has no img_view_transformer; ignoring.")
 
     # Build detector using MM model zoo
     if args.checkpoint:

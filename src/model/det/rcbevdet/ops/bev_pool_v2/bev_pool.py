@@ -2,10 +2,101 @@
 
 import numpy as np
 import torch
+from typing import Optional
 
-from . import bev_pool_v2_ext
+try:
+    from . import bev_pool_v2_ext
+    USE_CUDA = True
+except ImportError:  # pragma: no cover - depends on local CUDA extension build.
+    bev_pool_v2_ext = None
+    USE_CUDA = False
+    import warnings
+    warnings.warn(
+        "bev_pool_v2_ext CUDA extension not available. "
+        "Using PyTorch fallback (slower but no compilation needed). "
+        "To use CUDA: compile with 'python setup.py build_ext --inplace'"
+    )
 
 __all__ = ['bev_pool_v2', 'TRTBEVPoolv2']
+
+DEFAULT_BEV_POOL_BACKEND = "auto"  # "auto" | "cuda_ext" | "torch"
+
+
+def set_default_bev_pool_backend(backend: str) -> None:
+    backend = backend.lower()
+    if backend not in {"auto", "cuda_ext", "torch"}:
+        raise ValueError(f"Invalid bev_pool backend: {backend}")
+    global DEFAULT_BEV_POOL_BACKEND
+    DEFAULT_BEV_POOL_BACKEND = backend
+
+
+def _resolve_backend(backend: Optional[str]) -> str:
+    selected = (backend or DEFAULT_BEV_POOL_BACKEND).lower()
+    if selected not in {"auto", "cuda_ext", "torch"}:
+        raise ValueError(f"Invalid bev_pool backend: {selected}")
+    if selected == "auto":
+        return "cuda_ext" if bev_pool_v2_ext is not None else "torch"
+    if selected == "cuda_ext" and bev_pool_v2_ext is None:
+        raise RuntimeError("bev_pool backend='cuda_ext' requested but CUDA extension is unavailable.")
+    return selected
+
+
+def _bev_pool_v2_torch_forward(
+    depth: torch.Tensor,
+    feat: torch.Tensor,
+    ranks_depth: torch.Tensor,
+    ranks_feat: torch.Tensor,
+    ranks_bev: torch.Tensor,
+    bev_feat_shape,
+    interval_starts: torch.Tensor,
+    interval_lengths: torch.Tensor,
+) -> torch.Tensor:
+    """
+    Pure PyTorch fallback matching BEVPoolV2 math in CUDA kernel.
+    """
+    if depth.ndim != 5:
+        raise ValueError(f"Expected depth shape [B,N,D,H,W], got {tuple(depth.shape)}")
+    if feat.ndim != 5:
+        raise ValueError(f"Expected feat shape [B,N,H,W,C], got {tuple(feat.shape)}")
+
+    depth = depth.contiguous().float()
+    feat = feat.contiguous().float()
+    ranks_depth = ranks_depth.contiguous().long()
+    ranks_feat = ranks_feat.contiguous().long()
+    ranks_bev = ranks_bev.contiguous().long()
+    interval_starts = interval_starts.contiguous().long()
+    interval_lengths = interval_lengths.contiguous().long()
+
+    out = feat.new_zeros(bev_feat_shape)
+    out_flat = out.view(-1, out.shape[-1])    # [B*Z*Y*X, C]
+    depth_flat = depth.view(-1)               # [B*N*D*H*W]
+    feat_flat = feat.view(-1, feat.shape[-1]) # [B*N*H*W, C]
+
+    pooled_vals = []
+    pooled_bev_idx = []
+    n_intervals = int(interval_starts.numel())
+    for i in range(n_intervals):
+        start = int(interval_starts[i].item())
+        length = int(interval_lengths[i].item())
+        if length <= 0:
+            continue
+        end = start + length
+        rd = ranks_depth[start:end]
+        rf = ranks_feat[start:end]
+        bev_idx = int(ranks_bev[start].item())
+
+        w = depth_flat.index_select(0, rd).unsqueeze(1)   # [L,1]
+        f = feat_flat.index_select(0, rf)                 # [L,C]
+        pooled = (w * f).sum(dim=0)                       # [C]
+        pooled_vals.append(pooled)
+        pooled_bev_idx.append(bev_idx)
+
+    if pooled_vals:
+        src = torch.stack(pooled_vals, dim=0)  # [K,C]
+        idx = torch.tensor(pooled_bev_idx, dtype=torch.long, device=out.device)
+        out_flat.index_add_(0, idx, src)
+
+    return out
 
 
 class QuickCumsumCuda(torch.autograd.Function):
@@ -83,11 +174,40 @@ class QuickCumsumCuda(torch.autograd.Function):
             None, None, None
 
 
-def bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev,
-                bev_feat_shape, interval_starts, interval_lengths):
-    x = QuickCumsumCuda.apply(depth, feat, ranks_depth, ranks_feat, ranks_bev,
-                              bev_feat_shape, interval_starts,
-                              interval_lengths)
+def bev_pool_v2(
+    depth,
+    feat,
+    ranks_depth,
+    ranks_feat,
+    ranks_bev,
+    bev_feat_shape,
+    interval_starts,
+    interval_lengths,
+    backend: Optional[str] = None,
+):
+    selected = _resolve_backend(backend)
+    if selected == "cuda_ext":
+        x = QuickCumsumCuda.apply(
+            depth,
+            feat,
+            ranks_depth,
+            ranks_feat,
+            ranks_bev,
+            bev_feat_shape,
+            interval_starts,
+            interval_lengths,
+        )
+    else:
+        x = _bev_pool_v2_torch_forward(
+            depth,
+            feat,
+            ranks_depth,
+            ranks_feat,
+            ranks_bev,
+            bev_feat_shape,
+            interval_starts,
+            interval_lengths,
+        )
     x = x.permute(0, 4, 1, 2, 3).contiguous()
     return x
 

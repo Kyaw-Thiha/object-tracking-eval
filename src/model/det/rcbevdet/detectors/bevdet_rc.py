@@ -269,7 +269,7 @@ class BEVDet_RC(CenterPoint):
         return tensor if pos is None else tensor + pos
     
     @staticmethod
-    def get_reference_points(H, W, Z=8, num_points_in_pillar=4, dim='2d', bs=1, device='cuda', dtype=torch.float):
+    def get_reference_points(H, W, Z=8, num_points_in_pillar=4, dim='2d', bs=1, device='cpu', dtype=torch.float):
         """Get the reference points used in SCA and TSA.
         Args:
             H, W: spatial shape of bev.
@@ -301,7 +301,8 @@ class BEVDet_RC(CenterPoint):
                 torch.linspace(
                     0.5, H - 0.5, H, dtype=dtype, device=device),
                 torch.linspace(
-                    0.5, W - 0.5, W, dtype=dtype, device=device)
+                    0.5, W - 0.5, W, dtype=dtype, device=device),
+                indexing='ij',
             )
             ref_y = ref_y.reshape(-1)[None] / H
             ref_x = ref_x.reshape(-1)[None] / W
@@ -333,8 +334,12 @@ class BEVDet_RC(CenterPoint):
                 pos1 = self.LearnedPositionalEncoding1(mask)
                 pos2 = self.LearnedPositionalEncoding2(mask)
 
-                reference_point1=self.get_reference_points(self.bev_size,self.bev_size)
-                reference_point2=self.get_reference_points(self.bev_size,self.bev_size)
+                reference_point1 = self.get_reference_points(
+                    self.bev_size, self.bev_size, bs=img_feats[i].shape[0], device=device
+                )
+                reference_point2 = self.get_reference_points(
+                    self.bev_size, self.bev_size, bs=img_feats[i].shape[0], device=device
+                )
 
                 fusion_f1 = self.DeformAttn1(query=self.with_pos_embed(radar_feat, pos1), 
                                              reference_points = reference_point1, 
@@ -561,6 +566,22 @@ class BEVDet4D_RC(BEVDet_RC):
 
         self.with_prev = with_prev
         self.grid = None
+        # Validate temporal BEV concatenation channels against BEV encoder input.
+        try:
+            img_view_transformer = cast(Any, self.img_view_transformer)
+            bev_out_channels = int(img_view_transformer.out_channels)
+            expected_in_channels = bev_out_channels * (self.num_frame if self.with_prev else 1)
+            actual_in_channels = int(self.img_bev_encoder_backbone.layers[0][0].conv1.in_channels)
+            if actual_in_channels != expected_in_channels:
+                raise ValueError(
+                    "BEV encoder input channel mismatch: expected "
+                    f"{expected_in_channels} (out_channels={bev_out_channels}, num_frame={self.num_frame}, "
+                    f"with_prev={self.with_prev}) but img_bev_encoder_backbone expects {actual_in_channels}. "
+                    "Update config img_bev_encoder_backbone.numC_input accordingly."
+                )
+        except AttributeError:
+            # Backbones without the expected CustomResNet structure skip this check.
+            pass
 
     def init_weights(self):
         """Initialize model weights."""

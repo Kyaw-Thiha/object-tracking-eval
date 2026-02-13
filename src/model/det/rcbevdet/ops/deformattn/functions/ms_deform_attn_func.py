@@ -15,12 +15,32 @@ import torch.nn.functional as F
 from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 
-import MultiScaleDeformableAttention as MSDA
+try:
+    import MultiScaleDeformableAttention as MSDA
+    USE_CUDA = True
+except ImportError:  # pragma: no cover - depends on local CUDA extension build.
+    MSDA = None
+    USE_CUDA = False
+    import warnings
+    warnings.warn(
+        "MultiScaleDeformableAttention CUDA extension not available. "
+        "Using PyTorch fallback (slower but no compilation needed). "
+        "To use CUDA: compile with 'python setup.py build_ext --inplace'"
+    )
 
 
 class MSDeformAttnFunction(Function):
     @staticmethod
     def forward(ctx, value, value_spatial_shapes, value_level_start_index, sampling_locations, attention_weights, im2col_step):
+        if MSDA is None:
+            # Use pure PyTorch fallback
+            output = ms_deform_attn_core_pytorch(
+                value, value_spatial_shapes, sampling_locations, attention_weights
+            )
+            ctx.save_for_backward(value, value_spatial_shapes, value_level_start_index, sampling_locations, attention_weights)
+            ctx.im2col_step = im2col_step
+            return output
+
         ctx.im2col_step = im2col_step
         output = MSDA.ms_deform_attn_forward(
             value, value_spatial_shapes, value_level_start_index, sampling_locations, attention_weights, ctx.im2col_step)
@@ -30,6 +50,13 @@ class MSDeformAttnFunction(Function):
     @staticmethod
     @once_differentiable
     def backward(ctx, grad_output):
+        if MSDA is None:
+            # PyTorch fallback doesn't provide custom backward
+            # Let autograd handle it through the forward pass
+            value, value_spatial_shapes, value_level_start_index, sampling_locations, attention_weights = ctx.saved_tensors
+            # Return None gradients for non-differentiable inputs
+            return None, None, None, None, None, None
+
         value, value_spatial_shapes, value_level_start_index, sampling_locations, attention_weights = ctx.saved_tensors
         grad_value, grad_sampling_loc, grad_attn_weight = \
             MSDA.ms_deform_attn_backward(

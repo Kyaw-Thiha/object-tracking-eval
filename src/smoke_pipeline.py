@@ -10,7 +10,7 @@ import os
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import torch
 from mmcv import Config
@@ -23,7 +23,8 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 
-ALLOWED_TRACKERS = ["uncertainty_tracker", "probabilistic_byte_tracker", "prob_ocsort_tracker"]
+ALLOWED_TRACKERS = ["none", "uncertainty_tracker", "probabilistic_byte_tracker", "prob_ocsort_tracker", "rcbevdet_3d_tracker"]
+ALLOWED_2D_TRACKERS = ["uncertainty_tracker", "probabilistic_byte_tracker", "prob_ocsort_tracker"]
 
 
 @dataclass
@@ -79,6 +80,23 @@ def _to_label_tensor(x: Any, device: torch.device) -> torch.Tensor:
     if isinstance(x, torch.Tensor):
         return x.to(device=device, dtype=torch.long)
     return torch.as_tensor(x, dtype=torch.long, device=device)
+
+
+class _SmokeBoxes3D:
+    """Minimal 3D box wrapper for RCBEVDet heads expecting MM3D-style boxes."""
+
+    def __init__(self, tensor: torch.Tensor):
+        self.tensor = tensor
+        self.gravity_center = tensor[:, :3]
+
+
+def _to_boxes3d_object(x: Any, device: torch.device) -> Any:
+    if hasattr(x, "gravity_center") and hasattr(x, "tensor"):
+        return x
+    tensor = _to_bbox_tensor(x, device)
+    if tensor.ndim != 2 or tensor.shape[1] < 7:
+        raise ValueError(f"gt_bboxes_3d must be NxD with D>=7, got {tuple(tensor.shape)}")
+    return _SmokeBoxes3D(tensor)
 
 
 def _reduce_loss(v: Any, device: torch.device) -> torch.Tensor:
@@ -220,10 +238,104 @@ def _validate_tracker_output(
     return n
 
 
+def _validate_model_outputs_3d(
+    outputs_3d: Any,
+    batch_size: int,
+    strict: bool,
+    errors: list[str],
+) -> tuple[int, list[dict[str, torch.Tensor]]]:
+    if not isinstance(outputs_3d, list):
+        errors.append("3D model output must be list[dict]")
+        return 0, []
+    if len(outputs_3d) != batch_size:
+        errors.append("3D model output list length must equal batch size")
+        return 0, []
+
+    total = 0
+    per_frame: list[dict[str, torch.Tensor]] = []
+    for i, out in enumerate(outputs_3d):
+        if not isinstance(out, dict):
+            errors.append(f"frame {i}: 3D output must be dict")
+            return total, per_frame
+        for key in ("boxes_3d", "scores_3d", "labels_3d"):
+            if key not in out:
+                errors.append(f"frame {i}: missing key '{key}' in 3D output")
+                return total, per_frame
+            if not isinstance(out[key], torch.Tensor):
+                errors.append(f"frame {i}: '{key}' must be tensor")
+                return total, per_frame
+
+        boxes = out["boxes_3d"]
+        scores = out["scores_3d"]
+        labels = out["labels_3d"]
+        if boxes.ndim != 2 or boxes.shape[1] < 7:
+            errors.append(f"frame {i}: boxes_3d must be NxD with D>=7, got {tuple(boxes.shape)}")
+            return total, per_frame
+        n = boxes.shape[0]
+        if scores.ndim != 1 or scores.shape[0] != n:
+            errors.append(f"frame {i}: scores_3d shape mismatch")
+            return total, per_frame
+        if labels.ndim != 1 or labels.shape[0] != n:
+            errors.append(f"frame {i}: labels_3d shape mismatch")
+            return total, per_frame
+
+        if "velocities" in out and out["velocities"] is not None:
+            v = out["velocities"]
+            if not isinstance(v, torch.Tensor) or v.ndim != 2 or v.shape[0] != n or v.shape[1] != 2:
+                errors.append(f"frame {i}: velocities must be Nx2 when present")
+                return total, per_frame
+
+        if strict and (not torch.isfinite(boxes).all() or not torch.isfinite(scores).all()):
+            errors.append(f"frame {i}: non-finite values in 3D outputs")
+            return total, per_frame
+
+        total += n
+        per_frame.append(out)
+
+    return total, per_frame
+
+
+def _validate_tracker_output_3d(
+    output: Any,
+    frame_idx: int,
+    strict: bool,
+    errors: list[str],
+) -> int:
+    if not isinstance(output, dict):
+        errors.append(f"3D tracker frame {frame_idx}: expected dict output")
+        return 0
+    for key in ("boxes_3d", "scores_3d", "labels_3d", "track_ids"):
+        if key not in output or not isinstance(output[key], torch.Tensor):
+            errors.append(f"3D tracker frame {frame_idx}: missing/invalid '{key}'")
+            return 0
+    boxes = output["boxes_3d"]
+    scores = output["scores_3d"]
+    labels = output["labels_3d"]
+    track_ids = output["track_ids"]
+    if boxes.ndim != 2 or boxes.shape[1] < 7:
+        errors.append(f"3D tracker frame {frame_idx}: boxes_3d shape invalid")
+        return 0
+    n = boxes.shape[0]
+    if scores.shape != (n,) or labels.shape != (n,) or track_ids.shape != (n,):
+        errors.append(f"3D tracker frame {frame_idx}: score/label/id shape mismatch")
+        return 0
+    if strict and (not torch.isfinite(boxes).all() or not torch.isfinite(scores).all()):
+        errors.append(f"3D tracker frame {frame_idx}: non-finite values")
+        return 0
+    return n
+
+
 def run_eval(args) -> SmokeReport:
     errors: list[str] = []
     warnings: list[str] = []
     stats: dict[str, Any] = {}
+
+    if args.output_mode == "2d" and args.tracker not in ALLOWED_2D_TRACKERS and args.tracker != "none":
+        errors.append(f"2D mode tracker must be one of {ALLOWED_2D_TRACKERS} or none")
+        return SmokeReport(mode="eval", ok=False, num_batches=0, errors=errors, warnings=warnings, stats=stats)
+    if args.output_mode == "3d" and args.tracker in ALLOWED_2D_TRACKERS:
+        errors.append("3D mode supports tracker=none or tracker=rcbevdet_3d_tracker only")
+        return SmokeReport(mode="eval", ok=False, num_batches=0, errors=errors, warnings=warnings, stats=stats)
 
     device = torch.device(args.device)
     dataloader = import_dataloader(args.dataloader_factory)
@@ -231,11 +343,11 @@ def run_eval(args) -> SmokeReport:
     model = factory(device=args.device)
     model.eval()
 
-    tracker = load_tracker(args.tracker) if args.tracker else None
-    tracker_model = build_tracker_model(model) if tracker is not None else None
+    tracker = load_tracker(args.tracker) if args.tracker and args.tracker != "none" else None
+    tracker_model = build_tracker_model(model) if (tracker is not None and args.output_mode == "2d") else None
     if tracker_model is not None:
         tracker_model.eval()
-    if tracker is not None:
+    if tracker is not None and hasattr(tracker, "reset"):
         tracker.reset()
 
     seen_batches = 0
@@ -269,66 +381,96 @@ def run_eval(args) -> SmokeReport:
             if errors:
                 break
 
-            # Exact parity with evaluation_pipeline:
-            # when tracker is enabled, inference runs through MOTDetector wrapper.
-            if tracker_model is not None:
-                outputs = tracker_model(imgs, targets)
-            else:
-                use_ctx = args.with_context == "on" or (args.with_context == "auto" and hasattr(model, "infer_with_context"))
-                if use_ctx:
-                    if not hasattr(model, "infer_with_context"):
-                        errors.append("with_context=on but model has no infer_with_context")
-                        break
-                    outputs = model.infer_with_context(imgs, targets)
+            if args.output_mode == "2d":
+                if tracker_model is not None:
+                    outputs = tracker_model(imgs, targets)
                 else:
-                    outputs = model.infer(imgs) if hasattr(model, "infer") else model(imgs)
+                    use_ctx = args.with_context == "on" or (args.with_context == "auto" and hasattr(model, "infer_with_context"))
+                    if use_ctx:
+                        if not hasattr(model, "infer_with_context"):
+                            errors.append("with_context=on but model has no infer_with_context")
+                            break
+                        outputs = model.infer_with_context(imgs, targets)
+                    else:
+                        outputs = model.infer(imgs) if hasattr(model, "infer") else model(imgs)
 
-            if not (isinstance(outputs, tuple) and len(outputs) == 3):
-                errors.append("model output must be tuple(len=3): (bboxes, labels, covs)")
-                break
+                if not (isinstance(outputs, tuple) and len(outputs) == 3):
+                    errors.append("model output must be tuple(len=3): (bboxes, labels, covs)")
+                    break
 
-            batch_bboxes, batch_labels, batch_covs = outputs
-            det_count, per_frame = _validate_model_outputs(
-                batch_bboxes,
-                batch_labels,
-                batch_covs,
-                batch_size=batch_size,
-                strict=args.strict,
-                errors=errors,
-            )
-            seen_dets += det_count
-            if errors:
-                break
+                batch_bboxes, batch_labels, batch_covs = outputs
+                det_count, per_frame = _validate_model_outputs(
+                    batch_bboxes,
+                    batch_labels,
+                    batch_covs,
+                    batch_size=batch_size,
+                    strict=args.strict,
+                    errors=errors,
+                )
+                seen_dets += det_count
+                if errors:
+                    break
 
-            if tracker is not None:
-                for j, (det_bboxes, det_labels, det_covs) in enumerate(per_frame):
-                    target = targets[j]
-                    if "img_metas" not in target:
-                        warnings.append(f"frame {j}: skipping tracker test (target has no img_metas)")
-                        continue
-                    frame_id = int(target.get("frame_id", j))
-                    frame_id_tracker = frame_id - 1
-                    track_output = tracker.track(
-                        imgs[j],
-                        img_metas=[target["img_metas"]],
-                        model=tracker_model,
-                        bboxes=det_bboxes,
-                        bbox_covs=det_covs,
-                        labels=det_labels,
-                        frame_id=frame_id_tracker,
-                        rescale=False,
-                    )
-                    tracker_frames_checked += 1
-                    tracker_tracks_total += _validate_tracker_output(
-                        track_output,
-                        frame_idx=j,
-                        strict=args.strict,
-                        errors=errors,
-                    )
-                    if errors:
-                        break
-            if errors:
-                break
+                if tracker is not None:
+                    for j, (det_bboxes, det_labels, det_covs) in enumerate(per_frame):
+                        target = targets[j]
+                        if "img_metas" not in target:
+                            warnings.append(f"frame {j}: skipping tracker test (target has no img_metas)")
+                            continue
+                        frame_id = int(target.get("frame_id", j))
+                        frame_id_tracker = frame_id - 1
+                        track_output = tracker.track(
+                            imgs[j],
+                            img_metas=[target["img_metas"]],
+                            model=tracker_model,
+                            bboxes=det_bboxes,
+                            bbox_covs=det_covs,
+                            labels=det_labels,
+                            frame_id=frame_id_tracker,
+                            rescale=False,
+                        )
+                        tracker_frames_checked += 1
+                        tracker_tracks_total += _validate_tracker_output(
+                            track_output,
+                            frame_idx=j,
+                            strict=args.strict,
+                            errors=errors,
+                        )
+                        if errors:
+                            break
+                if errors:
+                    break
+            else:
+                if not hasattr(model, "infer_with_context_3d"):
+                    errors.append("3D eval mode requires model.infer_with_context_3d")
+                    break
+                outputs_3d = model.infer_with_context_3d(imgs, targets)
+                det_count, per_frame_3d = _validate_model_outputs_3d(
+                    outputs_3d=outputs_3d,
+                    batch_size=batch_size,
+                    strict=args.strict,
+                    errors=errors,
+                )
+                seen_dets += det_count
+                if errors:
+                    break
+
+                if tracker is not None:
+                    for j, det3d in enumerate(per_frame_3d):
+                        target = targets[j]
+                        frame_id = int(target.get("frame_id", j))
+                        track_output = tracker.track(det3d, frame_id=frame_id)
+                        tracker_frames_checked += 1
+                        tracker_tracks_total += _validate_tracker_output_3d(
+                            track_output,
+                            frame_idx=j,
+                            strict=args.strict,
+                            errors=errors,
+                        )
+                        if errors:
+                            break
+                if errors:
+                    break
 
     stats["frames_checked"] = seen_frames
     stats["detections_checked"] = seen_dets
@@ -377,10 +519,15 @@ def run_train(args) -> SmokeReport:
         gt_bboxes = []
         gt_labels = []
         img_metas = []
+        is_rcbevdet_batch = False
+        rcbevdet_targets: list[dict[str, Any]] = []
         for t in targets:
             if not isinstance(t, dict):
                 errors.append("each target must be dict")
                 break
+            if "img_inputs" in t and "radar_points" in t:
+                is_rcbevdet_batch = True
+                rcbevdet_targets.append(t)
             b = t.get("gt_bboxes", t.get("boxes", torch.zeros((0, 4), dtype=torch.float32)))
             l = t.get("gt_labels", t.get("labels", torch.zeros((0,), dtype=torch.long)))
             gt_bboxes.append(_to_bbox_tensor(b, device))
@@ -397,12 +544,60 @@ def run_train(args) -> SmokeReport:
             break
 
         optimizer.zero_grad()
-        loss_dict = detector.forward_train(
-            imgs,
-            img_metas=img_metas,
-            gt_bboxes=gt_bboxes,
-            gt_labels=gt_labels,
-        )
+        if is_rcbevdet_batch and len(rcbevdet_targets) == len(targets):
+            required_img_input_keys = ("imgs", "sensor2egos", "ego2globals", "intrins", "post_rots", "post_trans", "bda")
+            missing_keys: list[str] = []
+            for t in rcbevdet_targets:
+                img_inputs = t.get("img_inputs", {})
+                for key in required_img_input_keys:
+                    if key not in img_inputs:
+                        missing_keys.append(key)
+            if missing_keys:
+                errors.append("rcbevdet target missing img_inputs keys: " + ", ".join(sorted(set(missing_keys))))
+                break
+
+            img_inputs_batch = [
+                torch.stack([cast(torch.Tensor, t["img_inputs"][k]) for t in rcbevdet_targets], dim=0).to(device)
+                for k in required_img_input_keys
+            ]
+            radar_batch = [cast(torch.Tensor, t["radar_points"]).to(device) for t in rcbevdet_targets]
+            gt_bboxes_3d = [
+                _to_boxes3d_object(t.get("gt_bboxes_3d", torch.zeros((0, 9), dtype=torch.float32)), device)
+                for t in rcbevdet_targets
+            ]
+            gt_labels_3d = [
+                _to_label_tensor(t.get("gt_labels_3d", torch.zeros((0,), dtype=torch.long)), device)
+                for t in rcbevdet_targets
+            ]
+
+            if any(not isinstance(m, dict) for m in img_metas):
+                errors.append("rcbevdet expects img_metas as list[dict]")
+                break
+
+            # BEVDepth variants expect a depth label tensor. Use zeros when
+            # dataloader does not provide dense depth supervision.
+            num_frame = int(getattr(detector, "num_frame", 1))
+            num_views = int(img_inputs_batch[0].shape[1])
+            cams_per_frame = max(1, num_views // max(1, num_frame))
+            _, _, _, h_in, w_in = img_inputs_batch[0].shape
+            gt_depth = torch.zeros((len(rcbevdet_targets), cams_per_frame, h_in, w_in), dtype=torch.float32, device=device)
+
+            loss_dict = detector.forward_train(
+                points=None,
+                img_metas=img_metas,
+                radar=radar_batch,
+                gt_bboxes_3d=gt_bboxes_3d,
+                gt_labels_3d=gt_labels_3d,
+                img_inputs=img_inputs_batch,
+                gt_depth=gt_depth,
+            )
+        else:
+            loss_dict = detector.forward_train(
+                imgs,
+                img_metas=img_metas,
+                gt_bboxes=gt_bboxes,
+                gt_labels=gt_labels,
+            )
         if not isinstance(loss_dict, dict) or len(loss_dict) == 0:
             errors.append("forward_train did not return a non-empty loss dict")
             break
@@ -435,7 +630,8 @@ def parse_args():
     pe.add_argument("--num_batches", default=1, type=int)
     pe.add_argument("--strict", action="store_true")
     pe.add_argument("--with_context", default="auto", choices=["auto", "on", "off"])
-    pe.add_argument("--tracker", default=None, choices=ALLOWED_TRACKERS)
+    pe.add_argument("--tracker", default="none", choices=ALLOWED_TRACKERS)
+    pe.add_argument("--output_mode", default="2d", choices=["2d", "3d"])
     pe.add_argument("--report_json", default=None, type=str)
 
     pt = sub.add_parser("train")
